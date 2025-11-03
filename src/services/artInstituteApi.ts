@@ -64,122 +64,121 @@ const validateImageUrl = async (url: string, timeout: number = 5000): Promise<bo
 };
 
 /**
- * Fetch random artworks from Art Institute of Chicago
- * Smart curation: prioritizes paintings and colorful works, excludes sketches
- * NOW WITH IMAGE VALIDATION: Only returns artworks with verified working image URLs
+ * Diverse collection themes from Art Institute's curated collections
+ * Ensures variety across styles, subjects, and time periods
+ */
+const DIVERSE_CATEGORIES = [
+  'Impressionism',
+  'Pop Art',
+  'Surrealism',
+  'Modernism',
+  'Art Deco',
+  'landscape',
+  'portrait',
+  'cityscape',
+  'still life',
+  'animals',
+  'abstract',
+];
+
+/**
+ * Fetch diverse curated artworks from Art Institute of Chicago
+ * FAST: No image validation, relies on API's image_id presence
+ * DIVERSE: Fetches from multiple themed categories for rich variety
+ * VIBRANT: Filters for colorful paintings, sculptures, photographs
  */
 export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkData[]> => {
   try {
-    console.log(`🎨 Fetching ${count} artworks from Art Institute of Chicago...`);
+    console.log(`🎨 Fetching ${count} diverse artworks from Art Institute...`);
 
     const allArtworks: ArtworkData[] = [];
-    let attempts = 0;
-    const maxAttempts = 8; // More attempts since we're validating images now
-    // Fetch significantly more to account for image validation failures
-    const targetCount = Math.ceil(count * 2.5);
 
-    // Try fetching from multiple random pages to get enough valid artworks
-    while (allArtworks.length < targetCount && attempts < maxAttempts) {
-      const randomPage = Math.floor(Math.random() * 50) + 1;
-      attempts++;
+    // Calculate how many items to fetch per category for diversity
+    const itemsPerCategory = Math.ceil(count / DIVERSE_CATEGORIES.length) + 1;
 
-      const response = await fetch(
-        `${BASE_URL}/artworks?page=${randomPage}&limit=100&fields=id,title,artist_display,date_display,image_id,is_public_domain,description,short_description,medium_display,dimensions,credit_line,style_titles,classification_titles,subject_titles,theme_titles,color`
+    // Fetch from multiple themed categories in parallel for SPEED + DIVERSITY
+    const categoryPromises = DIVERSE_CATEGORIES.map(async (category) => {
+      try {
+        const response = await fetch(
+          `${BASE_URL}/artworks/search?q=${encodeURIComponent(category)}&limit=${itemsPerCategory * 2}&fields=id,title,artist_display,date_display,image_id,is_public_domain,description,short_description,medium_display,dimensions,credit_line,style_titles,classification_titles,subject_titles,theme_titles,color`,
+          { signal: AbortSignal.timeout(8000) }
+        );
+
+        if (!response.ok) return [];
+
+        const searchData = await response.json();
+        const artworkIds = searchData.data.map((item: any) => item.id).slice(0, itemsPerCategory);
+
+        // Fetch full details for a few from this category
+        const detailsPromises = artworkIds.slice(0, Math.min(3, itemsPerCategory)).map(async (id: number) => {
+          try {
+            const detailResponse = await fetch(
+              `${BASE_URL}/artworks/${id}?fields=id,title,artist_display,date_display,image_id,is_public_domain,description,short_description,medium_display,dimensions,credit_line,style_titles,classification_titles,subject_titles,theme_titles,color`,
+              { signal: AbortSignal.timeout(5000) }
+            );
+            if (detailResponse.ok) {
+              const data = await detailResponse.json();
+              return data.data;
+            }
+          } catch {
+            return null;
+          }
+          return null;
+        });
+
+        const categoryArtworks = await Promise.all(detailsPromises);
+        return categoryArtworks.filter((a): a is ArtworkData => a !== null);
+      } catch {
+        return [];
+      }
+    });
+
+    const categoryResults = await Promise.all(categoryPromises);
+    categoryResults.forEach(artworks => allArtworks.push(...artworks));
+
+    console.log(`📦 Fetched ${allArtworks.length} artworks from ${DIVERSE_CATEGORIES.length} categories`);
+
+    // FAST filtering - no image validation, just metadata checks
+    const curatedArtworks = allArtworks.filter((item: ArtworkData) => {
+      // Must have image_id and be public domain
+      if (!item.image_id || !item.is_public_domain) return false;
+
+      // Valid image ID format
+      if (typeof item.image_id !== 'string' || item.image_id.length < 10) return false;
+      if (item.image_id.includes('null') || item.image_id.includes('undefined')) return false;
+
+      // Must have title and artist
+      if (!item.title || !item.artist_display) return false;
+
+      const classifications = item.classification_titles || [];
+
+      // Prioritize paintings, sculptures, photos (skip prints/etchings)
+      const hasPainting = classifications.some(c => c.toLowerCase().includes('painting'));
+      const hasSculpture = classifications.some(c => c.toLowerCase().includes('sculpture'));
+      const hasPhoto = classifications.some(c => c.toLowerCase().includes('photograph'));
+      const isPrint = classifications.some(c =>
+        c.toLowerCase().includes('print') ||
+        c.toLowerCase().includes('etching') ||
+        c.toLowerCase().includes('engraving')
       );
 
-      if (!response.ok) {
-        console.warn(`Attempt ${attempts}: API returned ${response.status}`);
-        continue;
-      }
+      // Skip prints/etchings
+      if (isPrint) return false;
 
-      const data = await response.json();
+      // Must be painting, sculpture, or photo
+      if (!hasPainting && !hasSculpture && !hasPhoto) return false;
 
-      // Smart curation: Filter for high-quality, exciting artworks
-      const artworks = data.data.filter((item: ArtworkData) => {
-        // Must have image_id and be public domain
-        if (!item.image_id || !item.is_public_domain) return false;
+      // Prefer vibrant works (but less strict than before)
+      if (item.color && item.color.s < 15) return false;
 
-        // Image ID must be valid format (not null, not empty, contains valid chars)
-        // Ensure it doesn't contain suspicious patterns
-        if (typeof item.image_id !== 'string' || item.image_id.length < 10) return false;
-        if (item.image_id.includes('null') || item.image_id.includes('undefined')) return false;
+      return true;
+    });
 
-        // Must have a title
-        if (!item.title || item.title.trim() === '') return false;
-
-        // Must have artist display
-        if (!item.artist_display || item.artist_display.trim() === '') return false;
-
-        // Must have date display (helps ensure it's a real artwork)
-        if (!item.date_display) return false;
-
-        // Prioritize paintings, sculptures, and photos over sketches/drawings
-        const classifications = item.classification_titles || [];
-        const hasPainting = classifications.some(c =>
-          c.toLowerCase().includes('painting')
-        );
-        const hasSculpture = classifications.some(c =>
-          c.toLowerCase().includes('sculpture')
-        );
-        const hasPhoto = classifications.some(c =>
-          c.toLowerCase().includes('photograph')
-        );
-        const hasSketch = classifications.some(c =>
-          c.toLowerCase().includes('drawing') ||
-          c.toLowerCase().includes('sketch') ||
-          c.toLowerCase().includes('print')
-        );
-
-        // Must be a painting, sculpture, or photo (not just a sketch)
-        if (!hasPainting && !hasSculpture && !hasPhoto) return false;
-
-        // Filter for colorful/vibrant works (exclude faint sketches)
-        // Only apply if color data exists
-        if (item.color && item.color.s < 20) return false;
-
-        return true;
-      });
-
-      allArtworks.push(...artworks);
-      console.log(`📦 Attempt ${attempts}: Found ${artworks.length} valid artworks (total: ${allArtworks.length})`);
-    }
-
-    console.log(`🔍 Validating ${allArtworks.length} image URLs...`);
-
-    // Validate images in parallel (but in batches to avoid overwhelming the browser)
-    const validatedArtworks: ArtworkData[] = [];
-    const batchSize = 10;
-
-    for (let i = 0; i < allArtworks.length; i += batchSize) {
-      const batch = allArtworks.slice(i, i + batchSize);
-      const validationResults = await Promise.all(
-        batch.map(async (artwork) => {
-          const imageUrl = getImageUrl(artwork.image_id, 400); // Test with smaller size for speed
-          const isValid = await validateImageUrl(imageUrl, 3000); // 3 second timeout
-          return { artwork, isValid };
-        })
-      );
-
-      // Add only artworks with valid images
-      validationResults.forEach(({ artwork, isValid }) => {
-        if (isValid) {
-          validatedArtworks.push(artwork);
-        }
-      });
-
-      console.log(`✓ Validated batch ${Math.floor(i / batchSize) + 1}: ${validationResults.filter(r => r.isValid).length}/${batch.length} images valid`);
-
-      // Stop early if we have enough validated artworks
-      if (validatedArtworks.length >= count) {
-        break;
-      }
-    }
-
-    // Shuffle and take requested count
-    const shuffled = validatedArtworks.sort(() => Math.random() - 0.5);
+    // Shuffle for variety and take requested count
+    const shuffled = curatedArtworks.sort(() => Math.random() - 0.5);
     const selected = shuffled.slice(0, count);
 
-    console.log(`✅ Successfully loaded ${selected.length} artworks with VERIFIED working images`);
+    console.log(`✅ Loaded ${selected.length} diverse, curated artworks (NO validation delay)`);
 
     return selected;
   } catch (error) {
