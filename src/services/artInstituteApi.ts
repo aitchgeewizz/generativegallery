@@ -64,107 +64,47 @@ const validateImageUrl = async (url: string, timeout: number = 5000): Promise<bo
 };
 
 /**
- * Quick search queries that return quality artworks
- * Mix of movements, subjects, and styles for diversity
- */
-const QUICK_SEARCHES = [
-  'painting', 'landscape', 'portrait', 'modern', 'color',
-  'flowers', 'water', 'city', 'people', 'nature',
-];
-
-/**
- * Fetch diverse curated artworks from Art Institute of Chicago
- * SEARCH-BASED: Query specific terms to find good artworks
- * FAST: Quick searches with relaxed filters
- * DIVERSE: Multiple search terms ensure variety
- * RELIABLE: Gets full 32 artworks
+ * Fetch artworks from Art Institute of Chicago
+ * ULTRA-SIMPLE: Direct API call, minimal filtering
+ * Uses pagination parameter to get different artworks each time
  */
 export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkData[]> => {
   try {
-    console.log(`🎨 Fetching ${count} artworks from Art Institute...`);
+    console.log(`🎨 Fetching ${count} artworks from Art Institute (simple mode)...`);
 
-    const allArtworks: ArtworkData[] = [];
+    // Pick a random starting page (1-20)
+    const startPage = Math.floor(Math.random() * 20) + 1;
 
-    // Pick 4 random search terms for variety
-    const shuffledSearches = [...QUICK_SEARCHES].sort(() => Math.random() - 0.5).slice(0, 4);
-    const perSearch = Math.ceil(count / shuffledSearches.length) + 2;
+    const response = await fetch(
+      `${BASE_URL}/artworks?page=${startPage}&limit=100&fields=id,title,artist_display,date_display,image_id,is_public_domain,description,short_description,medium_display,dimensions,credit_line,style_titles,classification_titles,subject_titles,theme_titles,color`,
+      { signal: AbortSignal.timeout(10000) }
+    );
 
-    // Search in parallel for speed
-    const searchPromises = shuffledSearches.map(async (term) => {
-      try {
-        const response = await fetch(
-          `${BASE_URL}/artworks/search?q=${encodeURIComponent(term)}&limit=${perSearch * 3}&fields=id`,
-          { signal: AbortSignal.timeout(5000) }
-        );
+    if (!response.ok) {
+      console.error(`API returned ${response.status}`);
+      return [];
+    }
 
-        if (!response.ok) return [];
+    const data = await response.json();
+    console.log(`📦 API returned ${data.data.length} total artworks`);
 
-        const searchData = await response.json();
-        const ids = searchData.data.map((item: any) => item.id).slice(0, perSearch);
-
-        // Fetch details for these artworks
-        const detailPromises = ids.map(async (id: number) => {
-          try {
-            const detailResponse = await fetch(
-              `${BASE_URL}/artworks/${id}?fields=id,title,artist_display,date_display,image_id,is_public_domain,description,short_description,medium_display,dimensions,credit_line,style_titles,classification_titles,subject_titles,theme_titles,color`,
-              { signal: AbortSignal.timeout(4000) }
-            );
-            if (detailResponse.ok) {
-              const data = await detailResponse.json();
-              return data.data;
-            }
-          } catch {
-            return null;
-          }
-          return null;
-        });
-
-        const details = await Promise.all(detailPromises);
-        return details.filter((d): d is ArtworkData => d !== null);
-      } catch {
-        return [];
-      }
+    // MINIMAL filtering - just need image and basic info
+    const filtered = data.data.filter((item: ArtworkData) => {
+      return item.image_id &&
+             item.is_public_domain &&
+             item.title &&
+             item.artist_display &&
+             typeof item.image_id === 'string' &&
+             item.image_id.length > 5;
     });
 
-    const searchResults = await Promise.all(searchPromises);
-    searchResults.forEach(artworks => allArtworks.push(...artworks));
+    console.log(`✅ After filtering: ${filtered.length} artworks with images`);
 
-    console.log(`📦 Fetched ${allArtworks.length} artworks from ${shuffledSearches.length} searches`);
-
-    // RELAXED filtering - just basic quality checks
-    const filtered = allArtworks.filter((item: ArtworkData) => {
-      // Must have image_id and be public domain
-      if (!item.image_id || !item.is_public_domain) return false;
-
-      // Valid image ID
-      if (typeof item.image_id !== 'string' || item.image_id.length < 10) return false;
-
-      // Must have title and artist
-      if (!item.title || !item.artist_display) return false;
-
-      // Accept paintings, sculptures, photos, AND prints (more variety)
-      const classifications = item.classification_titles || [];
-      const hasArt = classifications.some(c => {
-        const lower = c.toLowerCase();
-        return lower.includes('painting') ||
-               lower.includes('sculpture') ||
-               lower.includes('photograph') ||
-               lower.includes('drawing');
-      });
-
-      if (!hasArt) return false;
-
-      // Very relaxed color filter - accept most works
-      if (item.color && item.color.s < 5) return false;
-
-      return true;
-    });
-
-    // Shuffle and take requested count
+    // Shuffle and take what we need
     const shuffled = filtered.sort(() => Math.random() - 0.5);
     const selected = shuffled.slice(0, count);
 
-    console.log(`✅ Loaded ${selected.length} diverse artworks from Art Institute`);
+    console.log(`✨ Selected ${selected.length} artworks for display`);
 
     return selected;
   } catch (error) {
