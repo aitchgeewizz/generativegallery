@@ -79,7 +79,9 @@ export const getHarvardImageUrl = (artwork: HarvardArtObject, size: number = 843
 
 /**
  * Fetch random artworks from Harvard Art Museums
- * Filters for quality content with images
+ * SMART CURATION: Prioritizes vibrant paintings, sculptures, photographs
+ * Excludes manuscripts, prints, etchings, and pre-1400 works
+ * Filters for colorful, exciting modern artworks
  */
 export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardArtObject[]> => {
   if (!API_KEY) {
@@ -119,7 +121,7 @@ export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardA
 
       const data = await response.json();
 
-      // Filter for high-quality artworks
+      // SMART CURATION: Filter for vibrant, exciting artworks
       const qualityArtworks = data.records?.filter((item: HarvardArtObject) => {
         // Must have image
         if (!item.primaryimageurl && (!item.images || item.images.length === 0)) {
@@ -136,16 +138,68 @@ export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardA
           return false;
         }
 
-        // Prefer paintings, sculptures, photographs
         const classification = item.classification?.toLowerCase() || '';
-        const hasInterestingType =
-          classification.includes('painting') ||
-          classification.includes('photograph') ||
-          classification.includes('sculpture') ||
-          classification.includes('print') ||
-          classification.includes('drawing');
+        const medium = item.medium?.toLowerCase() || '';
+        const title = item.title?.toLowerCase() || '';
 
-        return hasInterestingType || true;
+        // EXCLUDE: Manuscripts, books, fragments (these tend to be the medieval pages)
+        const isManuscript =
+          classification.includes('manuscript') ||
+          classification.includes('book') ||
+          classification.includes('fragment') ||
+          classification.includes('folio') ||
+          medium.includes('parchment') ||
+          medium.includes('vellum') ||
+          title.includes('manuscript') ||
+          title.includes('folio');
+
+        if (isManuscript) return false;
+
+        // EXCLUDE: Prints and etchings (tend to be black & white historical prints)
+        const isPrintOrEtching =
+          classification.includes('print') ||
+          classification.includes('etching') ||
+          classification.includes('engraving') ||
+          classification.includes('lithograph') ||
+          medium.includes('etching') ||
+          medium.includes('engraving');
+
+        if (isPrintOrEtching) return false;
+
+        // PRIORITIZE: Paintings, sculptures, photographs, drawings (modern)
+        const hasPainting = classification.includes('painting');
+        const hasSculpture = classification.includes('sculpture');
+        const hasPhotograph = classification.includes('photograph');
+        const hasDrawing = classification.includes('drawing');
+
+        // Only accept if it's one of our preferred types
+        if (!hasPainting && !hasSculpture && !hasPhotograph && !hasDrawing) {
+          return false;
+        }
+
+        // Filter for modern/contemporary works (more likely to be colorful)
+        // Exclude works older than 1400 (medieval/ancient tend to be manuscripts)
+        if (item.datebegin && item.datebegin < 1400) {
+          return false;
+        }
+
+        // Prefer works with color data (indicates vibrant/colorful artwork)
+        if (item.colors && item.colors.length > 0) {
+          // Boost if it has multiple colors or high percentage of vibrant colors
+          const hasVibrantColors = item.colors.some(c =>
+            c.percent > 10 &&
+            (c.spectrum === 'red' || c.spectrum === 'orange' ||
+             c.spectrum === 'yellow' || c.spectrum === 'green' ||
+             c.spectrum === 'blue' || c.spectrum === 'violet')
+          );
+
+          // If it has color data but no vibrant colors, deprioritize
+          if (!hasVibrantColors && item.colors.length < 3) {
+            return Math.random() > 0.7; // Only accept 30% of non-vibrant works
+          }
+        }
+
+        return true;
       }) || [];
 
       artworks.push(...qualityArtworks);

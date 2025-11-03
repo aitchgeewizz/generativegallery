@@ -1,7 +1,6 @@
 import { PortfolioItem, ShapeType } from '../types';
 import { curatedArtwork, getFallbackArtwork } from './curatedArtwork';
-import { fetchClevelandArtworks, getClevelandImageUrl, formatClevelandArtwork } from '../services/clevelandMuseumApi';
-import { searchArtworksByTag, getImageUrl } from '../services/artInstituteApi';
+import { fetchRandomArtworks, searchArtworksByTag, getImageUrl } from '../services/artInstituteApi';
 
 const shapes: ShapeType[] = ['box', 'sphere', 'torus', 'cone', 'cylinder', 'octahedron'];
 
@@ -88,24 +87,24 @@ export const getGridDimensions = () => {
 };
 
 /**
- * Generates items with curated artworks from Cleveland Museum of Art API
- * GUARANTEED to return exactly 'count' items with images
- * Uses CDN-hosted images for maximum reliability
+ * Generates items with curated artworks from Art Institute of Chicago API
+ * SMART CURATION: Prioritizes vibrant paintings, sculptures, and photos
+ * Filters out sketches/drawings and low-saturation works
+ * GUARANTEED to return exactly 'count' items with VERIFIED working images
  */
 export const generateArtworkItems = async (count: number = 32): Promise<PortfolioItem[]> => {
   const positions = generateGridPositions(count);
   let items: PortfolioItem[] = [];
 
   try {
-    // Fetch from Cleveland Museum of Art API
-    const artworks = await fetchClevelandArtworks(count);
+    // Fetch from Art Institute of Chicago API with smart curation
+    const artworks = await fetchRandomArtworks(count);
 
-    console.log(`📊 Received ${artworks.length} artworks from Cleveland Museum API`);
+    console.log(`📊 Received ${artworks.length} curated artworks from Art Institute of Chicago`);
 
     // Convert API artworks to items
     items = artworks.slice(0, count).map((artwork, i) => {
-      const imageUrl = getClevelandImageUrl(artwork, 'web');
-      const fallbackUrl = getClevelandImageUrl(artwork, 'web'); // Same URL - CDN is very reliable
+      const imageUrl = getImageUrl(artwork.image_id, 843);
 
       return {
         id: i,
@@ -114,17 +113,19 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
         shape: shapes[Math.floor(Math.random() * shapes.length)],
         color: colors[Math.floor(Math.random() * colors.length)],
         title: artwork.title,
-        description: formatClevelandArtwork(artwork),
-        imageUrl: imageUrl || '',
-        fallbackUrl: fallbackUrl || '',
-        collectionSource: 'Cleveland Museum of Art',
+        description: artwork.artist_display,
+        imageUrl: imageUrl,
+        collectionSource: 'Art Institute of Chicago',
+        url: `https://www.artic.edu/artworks/${artwork.id}`,
         // Rich artwork metadata
-        shortDescription: artwork.wall_description || artwork.description,
-        medium: artwork.technique,
-        dimensions: artwork.measurements,
-        creditLine: artwork.creditline,
-        department: artwork.department,
-        culture: artwork.culture?.join(', '),
+        shortDescription: artwork.short_description || artwork.description,
+        medium: artwork.medium_display,
+        dimensions: artwork.dimensions,
+        creditLine: artwork.credit_line,
+        styleTitles: artwork.style_titles,
+        classificationTitles: artwork.classification_titles,
+        subjectTitles: artwork.subject_titles,
+        themeTitles: artwork.theme_titles,
       };
     });
 
@@ -151,10 +152,10 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
       }
     }
 
-    console.log(`✅ Final collection: ${items.length} items (all with CDN-hosted images)`);
+    console.log(`✅ Final collection: ${items.length} items (all with verified images)`);
     return items;
   } catch (error) {
-    console.error('❌ Cleveland Museum API failed, using 100% curated collection:', error);
+    console.error('❌ Art Institute API failed, using 100% curated collection:', error);
 
     // Full fallback to local curated artworks
     const shuffledArtwork = shuffleArray(curatedArtwork);
