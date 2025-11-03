@@ -1,6 +1,6 @@
 export type ShapeType = 'box' | 'sphere' | 'torus' | 'cone' | 'cylinder' | 'octahedron';
 
-export type CollectionType = 'art-institute' | 'met-design';
+export type CollectionType = 'art-institute' | 'met-design' | 'harvard';
 
 export type ViewMode = 'collection' | 'tag-filter';
 

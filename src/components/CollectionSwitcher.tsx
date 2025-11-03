@@ -23,6 +23,12 @@ const collections: Collection[] = [
     description: 'Met Museum - Modern Design & Graphic Design',
     icon: '✨',
   },
+  {
+    id: 'harvard',
+    name: 'Harvard',
+    description: 'Harvard Art Museums - 250k+ Diverse Collection',
+    icon: '🎓',
+  },
 ];
 
 /**

@@ -4,6 +4,7 @@ import { InfiniteCanvas } from './components/InfiniteCanvas';
 import { CollectionSwitcher } from './components/CollectionSwitcher';
 import { generateArtworkItems, searchArtworkItemsByTag } from './data/placeholderItems';
 import { generateDesignItems, searchDesignItemsByTag } from './data/designItems';
+import { generateHarvardItems, searchHarvardItemsByTag } from './data/harvardItems';
 import { PortfolioItem, CollectionType, ActiveFilter } from './types';
 import { searchByTag } from './utils/tagExtractor';
 
@@ -41,6 +42,9 @@ function App() {
       } else if (collection === 'met-design') {
         console.log('✨ Fetching Design collection...');
         collectionItems = await generateDesignItems(32);
+      } else if (collection === 'harvard') {
+        console.log('🎓 Fetching Harvard Art Museums collection...');
+        collectionItems = await generateHarvardItems(32);
       }
 
       // Only update if we got items and this request wasn't cancelled
@@ -101,23 +105,25 @@ function App() {
 
     try {
       if (expandToAll) {
-        // EXPANDED SCOPE: Search both museum APIs and interleave results
+        // EXPANDED SCOPE: Search all museum APIs and interleave results
         console.log('🌐 Searching all collections in parallel...');
-        const [artItems, designItems] = await Promise.all([
-          searchArtworkItemsByTag(tagLabel, 16),  // Get 16 from each
-          searchDesignItemsByTag(tagLabel, 16),   // Total 32 when combined
+        const [artItems, designItems, harvardItems] = await Promise.all([
+          searchArtworkItemsByTag(tagLabel, 11),     // ~11 from each
+          searchDesignItemsByTag(tagLabel, 11),      // Total ~32 when combined
+          searchHarvardItemsByTag(tagLabel, 10),     // ~10 from Harvard
         ]);
 
-        // Interleave results from both collections for diversity
+        // Interleave results from all collections for diversity
         const combined: PortfolioItem[] = [];
-        const maxLength = Math.max(artItems.length, designItems.length);
+        const maxLength = Math.max(artItems.length, designItems.length, harvardItems.length);
         for (let i = 0; i < maxLength; i++) {
           if (i < artItems.length) combined.push(artItems[i]);
           if (i < designItems.length) combined.push(designItems[i]);
+          if (i < harvardItems.length) combined.push(harvardItems[i]);
         }
 
         filteredItems = combined.slice(0, 32);
-        console.log(`✅ Found ${filteredItems.length} items across all collections (${artItems.length} art + ${designItems.length} design)`);
+        console.log(`✅ Found ${filteredItems.length} items across all collections (${artItems.length} art + ${designItems.length} design + ${harvardItems.length} harvard)`);
 
         // IMPORTANT: Reposition the interleaved items in a centered grid
         // This fixes the "weird grid formation" issue
@@ -155,6 +161,8 @@ function App() {
           filteredItems = await searchArtworkItemsByTag(tagLabel, 32);
         } else if (collectionToSearch === 'met-design') {
           filteredItems = await searchDesignItemsByTag(tagLabel, 32);
+        } else if (collectionToSearch === 'harvard') {
+          filteredItems = await searchHarvardItemsByTag(tagLabel, 32);
         }
 
         console.log(`✅ Found ${filteredItems.length} items in ${collectionToSearch}`);
