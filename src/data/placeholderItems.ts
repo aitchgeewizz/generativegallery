@@ -1,20 +1,7 @@
 import { PortfolioItem, ShapeType } from '../types';
-import { curatedArtwork, getFallbackArtwork } from './curatedArtwork';
 import { fetchRandomArtworks, searchArtworksByTag, getImageUrl } from '../services/artInstituteApi';
 
 const shapes: ShapeType[] = ['box', 'sphere', 'torus', 'cone', 'cylinder', 'octahedron'];
-
-/**
- * Fisher-Yates shuffle algorithm to randomize array
- */
-function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
 
 // Enhanced vibrant color palette inspired by Cash App and modern design
 const colors = [
@@ -88,22 +75,26 @@ export const getGridDimensions = () => {
 
 /**
  * Generates items with curated artworks from Art Institute of Chicago API
- * SMART CURATION: Prioritizes vibrant paintings, sculptures, and photos
- * Filters out sketches/drawings and low-saturation works
- * GUARANTEED to return exactly 'count' items with VERIFIED working images
+ * RELIABLE: Uses caching and proper error handling
+ * NO FALLBACK to broken local images - API must succeed
  */
 export const generateArtworkItems = async (count: number = 32): Promise<PortfolioItem[]> => {
   const positions = generateGridPositions(count);
-  let items: PortfolioItem[] = [];
 
   try {
-    // Fetch from Art Institute of Chicago API with smart curation
+    console.log(`🎨 Requesting ${count} artworks from Art Institute API...`);
+
+    // Fetch from Art Institute of Chicago API (with caching)
     const artworks = await fetchRandomArtworks(count);
 
-    console.log(`📊 Received ${artworks.length} curated artworks from Art Institute of Chicago`);
+    if (!artworks || artworks.length === 0) {
+      throw new Error('API returned no artworks');
+    }
+
+    console.log(`✅ Received ${artworks.length} artworks from Art Institute of Chicago`);
 
     // Convert API artworks to items
-    items = artworks.slice(0, count).map((artwork, i) => {
+    const items = artworks.map((artwork, i) => {
       const imageUrl = getImageUrl(artwork.image_id, 843);
 
       return {
@@ -126,76 +117,19 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
         classificationTitles: artwork.classification_titles,
         subjectTitles: artwork.subject_titles,
         themeTitles: artwork.theme_titles,
+        copyrightStatus: 'public_domain' as const,
       };
     });
 
-    // ALWAYS pad to guarantee exactly 'count' items with images
-    if (items.length < count) {
-      console.log(`⭐ Padding with ${count - items.length} curated artworks to ensure complete collection`);
-      const shuffledLocal = shuffleArray(curatedArtwork);
-      const needed = count - items.length;
-
-      for (let i = 0; i < needed; i++) {
-        const artwork = shuffledLocal[i % shuffledLocal.length];
-        items.push({
-          id: items.length,
-          x: positions[items.length].x,
-          y: positions[items.length].y,
-          shape: shapes[Math.floor(Math.random() * shapes.length)],
-          color: colors[Math.floor(Math.random() * colors.length)],
-          title: artwork.title,
-          description: `${artwork.artist} (${artwork.year})`,
-          imageUrl: artwork.imageUrl,
-          fallbackUrl: artwork.fallbackUrl || getFallbackArtwork(i),
-          collectionSource: 'Curated Collection',
-        });
-      }
-    }
-
-    console.log(`✅ Final collection: ${items.length} items (all with verified images)`);
+    console.log(`✨ Successfully created ${items.length} portfolio items`);
     return items;
+
   } catch (error) {
-    console.error('❌ Art Institute API failed, using 100% curated collection:', error);
-
-    // Full fallback to local curated artworks
-    const shuffledArtwork = shuffleArray(curatedArtwork);
-
-    items = Array.from({ length: count }, (_, i) => {
-      const artwork = shuffledArtwork[i % shuffledArtwork.length];
-      return {
-        id: i,
-        x: positions[i].x,
-        y: positions[i].y,
-        shape: shapes[Math.floor(Math.random() * shapes.length)],
-        color: colors[Math.floor(Math.random() * colors.length)],
-        title: artwork.title,
-        description: `${artwork.artist} (${artwork.year})`,
-        imageUrl: artwork.imageUrl,
-        fallbackUrl: artwork.fallbackUrl || getFallbackArtwork(i),
-        collectionSource: 'Curated Collection',
-      };
-    });
-
-    console.log(`✨ Generated ${items.length} items with curated artworks`);
-    return items;
+    console.error('❌ Failed to generate artwork items:', error);
+    // Return empty array - let the app handle the error state
+    // NO FALLBACK to broken images
+    throw error;
   }
-};
-
-/**
- * Fallback: Generate items with SVG shapes if API fails
- */
-const generateFallbackItems = (count: number = 50): PortfolioItem[] => {
-  const positions = generateGridPositions(count);
-
-  return positions.map((pos, i) => ({
-    id: i,
-    x: pos.x,
-    y: pos.y,
-    shape: shapes[Math.floor(Math.random() * shapes.length)],
-    color: colors[Math.floor(Math.random() * colors.length)],
-    title: `Item ${i + 1}`,
-    description: `Portfolio item ${i + 1}`,
-  }));
 };
 
 /**
@@ -239,6 +173,7 @@ export const searchArtworkItemsByTag = async (tag: string, count: number = 32): 
       subjectTitles: artwork.subject_titles,
       themeTitles: artwork.theme_titles,
       url: `https://www.artic.edu/artworks/${artwork.id}`,
+      copyrightStatus: 'public_domain' as const,
     }));
 
     console.log(`✅ Returning ${items.length} centered art items for tag "${tag}"`);
@@ -248,10 +183,3 @@ export const searchArtworkItemsByTag = async (tag: string, count: number = 32): 
     return [];
   }
 };
-
-// Export a promise that will resolve to items
-export const placeholderItemsPromise = generateArtworkItems();
-
-// For backward compatibility, export empty array initially
-// Components should use the promise or fetch items themselves
-export const placeholderItems: PortfolioItem[] = [];

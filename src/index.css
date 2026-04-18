@@ -2,6 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
+/* SeasonMix font family */
+@font-face {
+  font-family: 'SeasonMix';
+  src: url('/font/SeasonMix-TRIAL-Light.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'SeasonMix';
+  src: url('/font/SeasonMix-TRIAL-LightItalic.woff2') format('woff2');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'SeasonMix';
+  src: url('/font/SeasonMix-TRIAL-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'SeasonMix';
+  src: url('/font/SeasonMix-TRIAL-RegularItalic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'SeasonMix';
+  src: url('/font/SeasonMix-TRIAL-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'SeasonMix';
+  src: url('/font/SeasonMix-TRIAL-MediumItalic.woff2') format('woff2');
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -36,6 +80,34 @@ body {
 /* Smooth transitions for hover effects */
 .grid-item {
   transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+}
+
+/* Gallery grain texture overlay */
+.gallery-grain::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.025;
+  pointer-events: none;
+  z-index: 100;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* Custom scrollbar for metadata drawer */
+.drawer-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.drawer-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.drawer-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+.drawer-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* Utility classes */

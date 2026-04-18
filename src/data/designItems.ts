@@ -102,8 +102,12 @@ export const generateDesignItems = async (count: number = 32): Promise<Portfolio
 
     console.log(`📊 Received ${designObjects.length} design objects from Cooper Hewitt API`);
 
+    // Only keep objects with valid image URLs
+    const withImages = designObjects.filter(d => getDesignImageUrl(d) !== null);
+    console.log(`🖼️ ${withImages.length} of ${designObjects.length} have usable images`);
+
     // Convert API design objects to items
-    items = designObjects.slice(0, count).map((design, i) => {
+    items = withImages.slice(0, count).map((design, i) => {
       const imageUrl = getDesignImageUrl(design);
 
       // Get primary designer/creator with role display name
@@ -113,7 +117,6 @@ export const generateDesignItems = async (count: number = 32): Promise<Portfolio
       ) || design.participants?.[0];
 
       const creator = primaryCreator?.person_name || 'Unknown Designer';
-      const creatorRole = primaryCreator?.role_display_name;
 
       return {
         id: i,
@@ -159,6 +162,8 @@ export const generateDesignItems = async (count: number = 32): Promise<Portfolio
           date: p.person_date,
           url: p.person_url,
         })),
+
+        copyrightStatus: design.has_no_known_copyright === '1' ? 'no_known_copyright' as const : 'unknown' as const,
       };
     });
 
@@ -228,13 +233,16 @@ export const searchDesignItemsByTag = async (tag: string, count: number = 32): P
 
     console.log(`📊 Found ${designObjects.length} design objects for tag "${tag}"`);
 
+    // Only keep objects with valid image URLs
+    const withImages = designObjects.filter(d => getDesignImageUrl(d) !== null);
+
     // Generate positions AFTER we know how many items we have
     // This prevents gaps when we have fewer than 32 items
-    const actualCount = designObjects.length;
+    const actualCount = withImages.length;
     const positions = generateGridPositions(actualCount, true); // CENTERED grid with actual count
 
     // Convert to PortfolioItems
-    items = designObjects.map((design, i) => {
+    items = withImages.map((design, i) => {
       const imageUrl = getDesignImageUrl(design);
       const primaryCreator = design.participants?.find(p =>
         p.role_name?.toLowerCase().includes('designer') ||
@@ -275,6 +283,7 @@ export const searchDesignItemsByTag = async (tag: string, count: number = 32): P
           date: p.person_date,
           url: p.person_url,
         })),
+        copyrightStatus: design.has_no_known_copyright === '1' ? 'no_known_copyright' as const : 'unknown' as const,
       };
     });
 

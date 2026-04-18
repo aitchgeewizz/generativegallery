@@ -1,41 +1,22 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
-import { Collection, CollectionType, ActiveFilter } from '../types';
+import { ActiveFilter } from '../types';
+import { collections } from '../collections/registry';
 
 interface CollectionSwitcherProps {
-  currentCollection: CollectionType;
-  onSelectCollection: (collection: CollectionType) => void;
+  currentCollection: string;
+  onSelectCollection: (collectionId: string) => void;
   activeFilter: ActiveFilter;
   onClearFilter: () => void;
   onExpandScope?: () => void;
 }
 
-const collections: Collection[] = [
-  {
-    id: 'art-institute',
-    name: 'Fine Art',
-    description: 'Art Institute of Chicago - Paintings & Fine Art',
-    icon: '🎨',
-  },
-  {
-    id: 'met-design',
-    name: 'Design',
-    description: 'Met Museum - Modern Design & Graphic Design',
-    icon: '✨',
-  },
-  {
-    id: 'harvard',
-    name: 'Harvard',
-    description: 'Harvard Art Museums - 250k+ Diverse Collection',
-    icon: '🎓',
-  },
-];
+const RefreshIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+  </svg>
+);
 
-/**
- * Subtle collection switcher
- * Floating pill in bottom-right corner with separate refresh button
- * Shows filter indicator when in tag-filter mode
- */
 export const CollectionSwitcher = ({
   currentCollection,
   onSelectCollection,
@@ -55,29 +36,25 @@ export const CollectionSwitcher = ({
 
   return (
     <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2">
-      {/* Refresh button - separate icon button to the left */}
       <motion.button
         onClick={handleRefresh}
         className="
           w-10 h-10 flex items-center justify-center rounded-full
           bg-black/60 backdrop-blur-md border border-white/10
           hover:bg-black/70 transition-all
-          text-white text-lg
+          text-white/60 hover:text-white/80
         "
         whileHover={{ scale: 1.05, rotate: 180 }}
         whileTap={{ scale: 0.95 }}
         title="Refresh collection"
       >
-        🔄
+        <RefreshIcon />
       </motion.button>
 
-      {/* Collection switcher OR Filter indicator */}
       <div className="relative">
         {isFiltered ? (
-          /* Filter indicator - shows when viewing filtered results */
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-2">
-              {/* Back button */}
               <motion.button
                 onClick={onClearFilter}
                 className="
@@ -89,33 +66,33 @@ export const CollectionSwitcher = ({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <span>←</span>
-                <span>Back to Collections</span>
+                <span className="text-white/40">&larr;</span>
+                <span>Back</span>
               </motion.button>
 
-              {/* Active filter badge with item count */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="
                   flex items-center gap-2 px-4 py-3 rounded-full
-                  bg-blue-500/20 backdrop-blur-md border border-blue-500/30
-                  text-blue-300 text-sm font-medium
+                  bg-white/5 backdrop-blur-md border border-white/10
+                  text-white/70 text-sm font-medium
                 "
               >
-                <span>{activeFilter.scope === 'all' ? '🌐' : '🎯'}</span>
-                <span className="font-bold">{activeFilter.tagLabel}</span>
-                <span className="text-blue-300/70">({activeFilter.resultCount || 0})</span>
+                <span className="text-white/30 text-xs uppercase tracking-wider">
+                  {activeFilter.scope === 'all' ? 'All' : 'Current'}
+                </span>
+                <span className="font-display">{activeFilter.tagLabel}</span>
+                <span className="text-white/30">({activeFilter.resultCount || 0})</span>
                 <button
                   onClick={onClearFilter}
-                  className="ml-1 text-blue-300/70 hover:text-blue-300 transition-colors text-lg"
+                  className="ml-1 text-white/30 hover:text-white/60 transition-colors"
                 >
-                  ×
+                  &times;
                 </button>
               </motion.div>
             </div>
 
-            {/* Expand scope button - shows when filtering current collection and results are limited */}
             {activeFilter.canExpandScope && onExpandScope && (
               <motion.button
                 initial={{ opacity: 0, y: -10 }}
@@ -123,20 +100,18 @@ export const CollectionSwitcher = ({
                 onClick={onExpandScope}
                 className="
                   flex items-center gap-2 px-4 py-2 rounded-full
-                  bg-purple-500/20 backdrop-blur-md border border-purple-500/30
-                  hover:bg-purple-500/30 transition-all
-                  text-purple-300 text-sm font-medium
+                  bg-white/5 backdrop-blur-md border border-white/10
+                  hover:bg-white/10 transition-all
+                  text-white/50 text-sm font-medium
                 "
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <span>🔍</span>
-                <span>Search all collections for "{activeFilter.tagLabel}"</span>
+                <span>Search all collections</span>
               </motion.button>
             )}
           </div>
         ) : (
-          /* Normal collection switcher */
           <>
             <AnimatePresence>
               {isExpanded && (
@@ -158,17 +133,17 @@ export const CollectionSwitcher = ({
                         transition-all duration-200 w-64
                         ${
                           collection.id === currentCollection
-                            ? 'bg-white/20 ring-2 ring-white/40'
-                            : 'bg-black/40 hover:bg-white/10'
+                            ? 'bg-white/10 ring-1 ring-white/20'
+                            : 'bg-black/60 hover:bg-white/5'
                         }
                       `}
                       whileHover={{ scale: 1.02, x: -4 }}
                       whileTap={{ scale: 0.98 }}
                     >
-                      <span className="text-2xl">{collection.icon}</span>
+                      <span className="text-white/30 text-xs font-mono w-6 text-center">{collection.icon}</span>
                       <div className="flex-1 text-left">
-                        <p className="text-white font-medium text-sm">{collection.name}</p>
-                        <p className="text-white/50 text-xs">{collection.description}</p>
+                        <p className="text-white/80 font-medium text-sm font-display">{collection.name}</p>
+                        <p className="text-white/30 text-xs">{collection.description}</p>
                       </div>
                     </motion.button>
                   ))}
@@ -176,26 +151,24 @@ export const CollectionSwitcher = ({
               )}
             </AnimatePresence>
 
-            {/* Main toggle button */}
             <motion.button
               onClick={() => setIsExpanded(!isExpanded)}
               className="
                 flex items-center gap-2 px-4 py-3 rounded-full
                 bg-black/60 backdrop-blur-md border border-white/10
                 hover:bg-black/70 transition-all
-                text-white text-sm font-medium
+                text-white/80 text-sm font-medium
               "
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <span className="text-xl">{currentCol.icon}</span>
-              <span>{currentCol.name}</span>
+              <span className="font-display">{currentCol.name}</span>
               <motion.span
                 animate={{ rotate: isExpanded ? 180 : 0 }}
                 transition={{ duration: 0.2 }}
-                className="text-white/60"
+                className="text-white/30 text-xs"
               >
-                ▼
+                &#9662;
               </motion.span>
             </motion.button>
           </>

@@ -1,6 +1,6 @@
 /**
- * Harvard Art Museums API
- * 250,000+ objects across Fogg, Busch-Reisinger, Arthur M. Sackler Museums
+ * Harvard Art Museums API — Photography Collection
+ * Focused on photographic works from the 250k+ object collection
  * API Docs: https://github.com/harvardartmuseums/api-docs
  * Rate Limit: 2500 requests/day
  */
@@ -78,42 +78,53 @@ export const getHarvardImageUrl = (artwork: HarvardArtObject, size: number = 843
 };
 
 /**
- * Fetch random artworks from Harvard Art Museums
- * SMART CURATION: Prioritizes vibrant paintings, sculptures, photographs
- * Excludes manuscripts, prints, etchings, and pre-1400 works
- * Filters for colorful, exciting modern artworks
+ * Photography search themes — curated for art photography, not documentation
+ */
+const PHOTO_THEMES = [
+  'portrait photography', 'street photography', 'landscape photography',
+  'documentary photography', 'fashion photography', 'still life photography',
+  'architectural photography', 'abstract photography', 'color photography',
+  'gelatin silver', 'platinum print', 'daguerreotype', 'albumen',
+  'chromogenic', 'pigment print', 'photogravure',
+];
+
+/**
+ * Fetch photographs from Harvard Art Museums
+ * Uses search-based approach to find art photography, excluding
+ * X-rays, radiographs, and conservation documentation
  */
 export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardArtObject[]> => {
   if (!API_KEY) {
-    console.warn('⚠️ Harvard Art Museums API key not found in environment variables');
-    console.warn('📝 Get your key at: https://harvardartmuseums.org/collections/api');
+    console.warn('Harvard Art Museums API key not found');
     return [];
   }
 
   try {
-    console.log(`🎨 Fetching ${count} artworks from Harvard Art Museums...`);
+    console.log(`Fetching ${count} photographs from Harvard Art Museums...`);
 
     const artworks: HarvardArtObject[] = [];
     const maxAttempts = 5;
     let attempts = 0;
 
-    // Harvard API pagination works differently - we'll fetch from different pages
+    // Pick random themes for variety
+    const shuffledThemes = [...PHOTO_THEMES].sort(() => Math.random() - 0.5);
+
     while (artworks.length < count && attempts < maxAttempts) {
+      const theme = shuffledThemes[attempts % shuffledThemes.length];
       attempts++;
 
-      // Random page (they have thousands of pages)
-      const randomPage = Math.floor(Math.random() * 500) + 1;
+      const randomPage = Math.floor(Math.random() * 30) + 1;
 
-      // Fetch with filters
+      // Search for photography with theme keywords
       const response = await fetch(
-        `${BASE_URL}/object?apikey=${API_KEY}&size=100&page=${randomPage}&hasimage=1&verificationlevel=4`,
+        `${BASE_URL}/object?apikey=${API_KEY}&size=100&page=${randomPage}&hasimage=1&classification=Photographs&q=${encodeURIComponent(theme)}`,
         { signal: AbortSignal.timeout(10000) }
       );
 
       if (!response.ok) {
         console.warn(`Attempt ${attempts}: API returned ${response.status}`);
         if (response.status === 429) {
-          console.warn('⚠️ Rate limit reached (2500/day). Try again tomorrow.');
+          console.warn('Rate limit reached (2500/day).');
           break;
         }
         continue;
@@ -121,100 +132,55 @@ export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardA
 
       const data = await response.json();
 
-      // SMART CURATION: Filter for vibrant, exciting artworks
-      const qualityArtworks = data.records?.filter((item: HarvardArtObject) => {
+      const qualityPhotos = data.records?.filter((item: HarvardArtObject) => {
         // Must have image
         if (!item.primaryimageurl && (!item.images || item.images.length === 0)) {
           return false;
         }
 
         // Must have title
-        if (!item.title || item.title.toLowerCase().includes('untitled')) {
+        if (!item.title) return false;
+
+        const titleLower = item.title.toLowerCase();
+
+        // EXCLUDE: X-rays, radiographs, conservation documentation
+        if (titleLower.includes('x-radiograph') ||
+            titleLower.includes('x-ray') ||
+            titleLower.includes('radiograph') ||
+            titleLower.includes('infrared reflectogram') ||
+            titleLower.includes('ultraviolet') ||
+            titleLower.includes('raking light') ||
+            titleLower.includes('conservation') ||
+            titleLower.includes('detail of') ||
+            titleLower.includes('verso of') ||
+            titleLower.includes('frame of')) {
           return false;
         }
 
-        // Must have artist/people
+        // Skip untitled
+        if (titleLower === 'untitled') return false;
+
+        // Must have photographer
         if (!item.people || item.people.length === 0) {
           return false;
-        }
-
-        const classification = item.classification?.toLowerCase() || '';
-        const medium = item.medium?.toLowerCase() || '';
-        const title = item.title?.toLowerCase() || '';
-
-        // EXCLUDE: Manuscripts, books, fragments (these tend to be the medieval pages)
-        const isManuscript =
-          classification.includes('manuscript') ||
-          classification.includes('book') ||
-          classification.includes('fragment') ||
-          classification.includes('folio') ||
-          medium.includes('parchment') ||
-          medium.includes('vellum') ||
-          title.includes('manuscript') ||
-          title.includes('folio');
-
-        if (isManuscript) return false;
-
-        // EXCLUDE: Prints and etchings (tend to be black & white historical prints)
-        const isPrintOrEtching =
-          classification.includes('print') ||
-          classification.includes('etching') ||
-          classification.includes('engraving') ||
-          classification.includes('lithograph') ||
-          medium.includes('etching') ||
-          medium.includes('engraving');
-
-        if (isPrintOrEtching) return false;
-
-        // PRIORITIZE: Paintings, sculptures, photographs, drawings (modern)
-        const hasPainting = classification.includes('painting');
-        const hasSculpture = classification.includes('sculpture');
-        const hasPhotograph = classification.includes('photograph');
-        const hasDrawing = classification.includes('drawing');
-
-        // Only accept if it's one of our preferred types
-        if (!hasPainting && !hasSculpture && !hasPhotograph && !hasDrawing) {
-          return false;
-        }
-
-        // Filter for modern/contemporary works (more likely to be colorful)
-        // Exclude works older than 1400 (medieval/ancient tend to be manuscripts)
-        if (item.datebegin && item.datebegin < 1400) {
-          return false;
-        }
-
-        // Prefer works with color data (indicates vibrant/colorful artwork)
-        if (item.colors && item.colors.length > 0) {
-          // Boost if it has multiple colors or high percentage of vibrant colors
-          const hasVibrantColors = item.colors.some(c =>
-            c.percent > 10 &&
-            (c.spectrum === 'red' || c.spectrum === 'orange' ||
-             c.spectrum === 'yellow' || c.spectrum === 'green' ||
-             c.spectrum === 'blue' || c.spectrum === 'violet')
-          );
-
-          // If it has color data but no vibrant colors, deprioritize
-          if (!hasVibrantColors && item.colors.length < 3) {
-            return Math.random() > 0.7; // Only accept 30% of non-vibrant works
-          }
         }
 
         return true;
       }) || [];
 
-      artworks.push(...qualityArtworks);
-      console.log(`📦 Attempt ${attempts}: Found ${qualityArtworks.length} artworks (total: ${artworks.length})`);
+      artworks.push(...qualityPhotos);
+      console.log(`Attempt ${attempts} (${theme}): Found ${qualityPhotos.length} photos (total: ${artworks.length})`);
     }
 
     // Shuffle and take requested count
     const shuffled = artworks.sort(() => Math.random() - 0.5);
     const selected = shuffled.slice(0, count);
 
-    console.log(`✅ Successfully loaded ${selected.length} Harvard artworks`);
+    console.log(`Loaded ${selected.length} Harvard photographs`);
 
     return selected;
   } catch (error) {
-    console.error('❌ Harvard Art Museums API failed:', error);
+    console.error('Harvard Art Museums API failed:', error);
     return [];
   }
 };
@@ -235,12 +201,8 @@ export const searchHarvardByTag = async (
   try {
     console.log(`🔍 Searching Harvard for tag: "${tag}"`);
 
-    // Search across multiple fields
-    const searchFields = ['title', 'technique', 'medium', 'culture', 'period'];
-    const query = searchFields.map(field => `${field}:${tag}`).join(' OR ');
-
     const response = await fetch(
-      `${BASE_URL}/object?apikey=${API_KEY}&q=${encodeURIComponent(tag)}&size=${count * 2}&hasimage=1`,
+      `${BASE_URL}/object?apikey=${API_KEY}&q=${encodeURIComponent(tag)}&size=${count * 2}&hasimage=1&classification=Photographs`,
       { signal: AbortSignal.timeout(10000) }
     );
 
@@ -251,12 +213,20 @@ export const searchHarvardByTag = async (
 
     const data = await response.json();
 
-    // Filter for quality
+    // Filter for quality — exclude documentation/conservation images
     const artworks = data.records?.filter((item: HarvardArtObject) => {
-      return (item.primaryimageurl || (item.images && item.images.length > 0)) &&
-             item.title &&
-             item.people &&
-             item.people.length > 0;
+      if (!item.primaryimageurl && (!item.images || item.images.length === 0)) return false;
+      if (!item.title || !item.people || item.people.length === 0) return false;
+
+      const titleLower = item.title.toLowerCase();
+      if (titleLower.includes('x-radiograph') || titleLower.includes('x-ray') ||
+          titleLower.includes('radiograph') || titleLower.includes('infrared') ||
+          titleLower.includes('ultraviolet') || titleLower.includes('raking light') ||
+          titleLower.includes('detail of') || titleLower.includes('verso of')) {
+        return false;
+      }
+
+      return true;
     }) || [];
 
     console.log(`✅ Found ${artworks.length} Harvard artworks for "${tag}"`);

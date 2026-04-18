@@ -173,16 +173,6 @@ const extractAttributes = (item: PortfolioItem): string[] => {
     }
   }
 
-  // Check for female artists (basic detection from participant names)
-  if (item.participants) {
-    const hasCreator = item.participants.some(p => {
-      const role = p.role?.toLowerCase() || '';
-      return role.includes('design') || role.includes('artist') || role.includes('creator');
-    });
-    // Note: Gender detection would require external data source
-    // For now, we'll skip this to avoid assumptions
-  }
-
   // Check description for keywords
   if (item.description) {
     const desc = item.description.toLowerCase();
@@ -191,6 +181,47 @@ const extractAttributes = (item: PortfolioItem): string[] => {
   }
 
   return attributes;
+};
+
+/**
+ * Extract the primary artist/creator name from a portfolio item
+ * Checks participants first (creative roles), falls back to description
+ */
+export const extractArtistName = (item: PortfolioItem): string | null => {
+  // Generic names that shouldn't be sent to Wikipedia
+  const genericNames = [
+    'unknown', 'artist unknown', 'unknown artist', 'unidentified',
+    'anonymous', 'unattributed', 'various', 'maker unknown',
+    'designer unknown', 'not known', 'unsigned',
+  ];
+
+  const isGeneric = (name: string) =>
+    genericNames.some(g => name.toLowerCase().trim() === g);
+
+  // Check participants for creative roles
+  if (item.participants && item.participants.length > 0) {
+    const donorRoles = ['donated', 'donor', 'previously owned', 'owned by'];
+    const creator = item.participants.find(p => {
+      const role = p.role?.toLowerCase() || '';
+      return !donorRoles.some(d => role.includes(d));
+    });
+    if (creator && !isGeneric(creator.name)) return creator.name;
+  }
+
+  // Fall back to description — often "Artist Name\nNationality, dates" or "Name (Nationality, dates)"
+  if (item.description) {
+    // Split on newline first (Art Institute format: "Name\nNationality, dates")
+    const firstLine = item.description.split('\n')[0].trim();
+    // Strip parenthetical info like "(French, 1836-1904)" or "(American"
+    const cleaned = firstLine.replace(/\s*\(.*$/, '');
+    const match = cleaned.match(/^([^,]+)/);
+    if (match && match[1].trim().length > 0 && match[1].trim().length < 60) {
+      const name = match[1].trim();
+      if (!isGeneric(name)) return name;
+    }
+  }
+
+  return null;
 };
 
 /**

@@ -113,7 +113,7 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
       </div>
 
       {/* Info overlay */}
-      <div className="absolute bottom-6 left-6 text-white/50 text-sm pointer-events-none select-none">
+      <div className="absolute bottom-6 left-6 text-white/50 text-sm pointer-events-none select-none font-display">
         <p>Click and drag to explore • Click artwork to view details • {items.length} unique artworks</p>
       </div>
 

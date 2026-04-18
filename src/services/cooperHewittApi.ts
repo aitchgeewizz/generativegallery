@@ -85,13 +85,6 @@ interface CooperHewittResponse {
 const BASE_URL = 'https://api.collection.cooperhewitt.org/rest/';
 const API_KEY = import.meta.env.VITE_COOPER_HEWITT_API_KEY || '';
 
-// Design-focused department IDs at Cooper Hewitt
-// These focus on graphic design, posters, and modern design
-const DESIGN_DEPARTMENT_IDS = [
-  '35347493', // Product Design and Decorative Arts
-  '35347497', // Drawings, Prints, and Graphic Design
-];
-
 // Search terms focused on graphic design and posters
 const DESIGN_SEARCH_TERMS = [
   'poster',
@@ -113,37 +106,8 @@ export const getDesignImageUrl = (imageData: DesignObjectData): string | null =>
   if (!imageData.images || imageData.images.length === 0) return null;
 
   const image = imageData.images[0];
-  // Use largest available size: b (large), z (medium), n (small)
-  return image.b?.url || image.z?.url || image.n?.url || null;
-};
-
-/**
- * Fetch a single random object from Cooper Hewitt
- */
-const fetchRandomObject = async (): Promise<DesignObjectData | null> => {
-  if (!API_KEY) {
-    console.warn('⚠️ Cooper Hewitt API key not configured');
-    return null;
-  }
-
-  try {
-    const response = await fetch(
-      `${BASE_URL}?method=cooperhewitt.objects.getRandom&access_token=${API_KEY}&has_images=1`
-    );
-
-    if (!response.ok) return null;
-
-    const data: CooperHewittResponse = await response.json();
-
-    if (data.stat === 'ok' && data.object) {
-      return data.object;
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Failed to fetch random object:', error);
-    return null;
-  }
+  // Try all available sizes from largest to smallest
+  return image.b?.url || image.z?.url || image.n?.url || image.d?.url || image.sq?.url || null;
 };
 
 /**
@@ -199,30 +163,40 @@ export const fetchRandomDesignObjects = async (count: number = 32): Promise<Desi
     console.log(`🎨 Fetching ${count} design objects from Cooper Hewitt...`);
 
     const results: DesignObjectData[] = [];
+    const seen = new Set<string>();
     const searchTermsToUse = [...DESIGN_SEARCH_TERMS].sort(() => Math.random() - 0.5);
+
+    // Overfetch — need extra to filter out items without usable images
+    const target = count * 2;
 
     // Try multiple search terms to get diverse results
     for (const term of searchTermsToUse) {
-      if (results.length >= count) break;
+      if (results.length >= target) break;
 
       // Use random page numbers (1-20) to get different results each time
       // This ensures we get 32 NEW items on each refresh
       const randomPage = Math.floor(Math.random() * 20) + 1;
       const objects = await searchDesignObjects(term, randomPage, 50);
 
-      // Filter for high-quality design objects
+      // Filter for objects that actually have a resolvable image URL
       const qualityObjects = objects.filter((obj) => {
-        // Prefer objects with designers/creators
-        const hasCreator = obj.participants && obj.participants.length > 0;
-        // Prefer objects with dates
-        const hasDate = obj.date && obj.date.length > 0;
-        // Must have images
-        const hasImages = obj.images && obj.images.length > 0;
+        // Must have an actual image URL we can use
+        const imageUrl = getDesignImageUrl(obj);
+        if (!imageUrl) return false;
 
-        return hasImages && (hasCreator || hasDate);
+        // Prefer objects with designers/creators or dates
+        const hasCreator = obj.participants && obj.participants.length > 0;
+        const hasDate = obj.date && obj.date.length > 0;
+
+        return hasCreator || hasDate;
       });
 
-      results.push(...qualityObjects);
+      for (const obj of qualityObjects) {
+        if (!seen.has(obj.id)) {
+          seen.add(obj.id);
+          results.push(obj);
+        }
+      }
 
       // Add a small delay to be respectful to the API
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -266,11 +240,12 @@ export const searchDesignObjectsByTag = async (
     for (let page = 1; page <= maxPages && results.length < count; page++) {
       const objects = await searchDesignObjects(tag, page, 100);
 
-      // Filter for high-quality objects with images
+      // Filter for objects with resolvable image URLs
       const qualityObjects = objects.filter((obj) => {
-        const hasImages = obj.images && obj.images.length > 0;
+        const imageUrl = getDesignImageUrl(obj);
+        if (!imageUrl) return false;
         const hasCreator = obj.participants && obj.participants.length > 0;
-        return hasImages && (hasCreator || obj.date);
+        return hasCreator || obj.date;
       });
 
       results.push(...qualityObjects);
@@ -302,8 +277,7 @@ export const searchDesignObjectsByTag = async (
 
         const additionalObjects = await searchDesignObjects(term, 1, 50);
         const qualityObjects = additionalObjects.filter((obj) => {
-          const hasImages = obj.images && obj.images.length > 0;
-          return hasImages;
+          return getDesignImageUrl(obj) !== null;
         });
 
         results.push(...qualityObjects);

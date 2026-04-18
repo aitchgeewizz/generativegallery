@@ -51,11 +51,6 @@ const convertHarvardToPortfolioItem = (
 ): PortfolioItem => {
   const imageUrl = getHarvardImageUrl(artwork, 843);
 
-  // Get primary artist
-  const primaryArtist = artwork.people && artwork.people.length > 0
-    ? artwork.people.sort((a, b) => a.displayorder - b.displayorder)[0].name
-    : 'Unknown Artist';
-
   return {
     id: index,
     x: positions[index].x,
@@ -65,7 +60,7 @@ const convertHarvardToPortfolioItem = (
     title: artwork.title,
     description: formatHarvardArtwork(artwork),
     imageUrl: imageUrl || undefined,
-    collectionSource: 'Harvard Art Museums',
+    collectionSource: 'Harvard Photography',
     url: artwork.url,
 
     // Rich metadata
@@ -89,6 +84,8 @@ const convertHarvardToPortfolioItem = (
       name: person.name,
       role: person.role,
     })),
+
+    copyrightStatus: 'unknown' as const,
   };
 };
 
@@ -157,7 +154,7 @@ export const searchHarvardItemsByTag = async (
     const offsetX = -totalWidth / 2;
     const offsetY = -totalHeight / 2;
 
-    const positions = [];
+    const positions: Array<{ x: number; y: number }> = [];
     for (let i = 0; i < actualCount; i++) {
       const row = Math.floor(i / itemsPerRow);
       const col = i % itemsPerRow;
