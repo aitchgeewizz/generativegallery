@@ -229,12 +229,18 @@ export const ArtworkDetail = ({
           }}
         />
 
-        {/* Image Stage — between left rail (~60px) and right panel (PANEL_W) */}
+        {/* Image Stage — between left rail (~60px) and right panel (PANEL_W).
+            Clicking the empty background (not the image itself) closes the
+            detail view, so visitors don't have to find the X. The image
+            also stops propagation so clicks on it don't close. */}
         <div
           className="absolute top-0 bottom-0 left-14 md:left-16 flex items-center justify-center"
           style={{ right: PANEL_W }}
           onWheel={handleWheel}
           onDoubleClick={handleDoubleClick}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) onClose();
+          }}
         >
           <AnimatePresence mode="wait">
             {item.imageUrl && !mainImageError ? (
@@ -408,6 +414,20 @@ export const ArtworkDetail = ({
           className="absolute right-0 top-0 bottom-0 z-30 flex flex-col bg-[#0a0a0a]/95 backdrop-blur-md border-l border-white/[0.06]"
           style={{ width: PANEL_W }}
         >
+          {/* Explicit close X — top-right corner of the panel. The back
+              arrow on the left rail also closes, and clicking the empty
+              image area closes too, but a visible X is what people look
+              for first. */}
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute top-5 right-5 z-10 w-9 h-9 flex items-center justify-center rounded-full text-white/45 hover:text-white/95 hover:bg-white/[0.06] transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M6 6l12 12M6 18L18 6" />
+            </svg>
+          </button>
+
           {/* Scrollable inner content */}
           <div className="flex-1 overflow-y-auto drawer-scroll px-8 py-12">
             {/* Wall label — always visible */}
@@ -494,9 +514,9 @@ export const ArtworkDetail = ({
                           />
                         )}
                         <div className="min-w-0">
-                          <p className="text-white/85 text-sm font-display">{artistName}</p>
+                          <p className="text-white/90 text-sm font-display">{artistName}</p>
                           {(enrichment.artistInfo.born || enrichment.artistInfo.died) && (
-                            <p className="text-white/50 text-xs mt-0.5">
+                            <p className="text-white/65 text-xs mt-0.5 font-display">
                               {enrichment.artistInfo.born && enrichment.artistInfo.died
                                 ? `${enrichment.artistInfo.born} – ${enrichment.artistInfo.died}`
                                 : enrichment.artistInfo.born
@@ -505,14 +525,14 @@ export const ArtworkDetail = ({
                             </p>
                           )}
                           {enrichment.artistInfo.nationality && (
-                            <p className="text-white/50 text-xs mt-0.5">
+                            <p className="text-white/65 text-xs mt-0.5 font-display">
                               {enrichment.artistInfo.nationality}
                             </p>
                           )}
                         </div>
                       </div>
                       {enrichment.artistInfo.summary && (
-                        <p className="text-white/70 text-sm leading-relaxed font-display">
+                        <p className="text-white/80 text-sm leading-relaxed font-display">
                           {enrichment.artistInfo.summary}
                         </p>
                       )}
@@ -585,9 +605,9 @@ export const ArtworkDetail = ({
                           href={work.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="w-24 shrink-0 group/card"
+                          className="w-28 shrink-0 group/card"
                         >
-                          <div className="w-24 h-24 rounded-md overflow-hidden bg-white/5">
+                          <div className="w-28 h-28 rounded-md overflow-hidden bg-white/5">
                             <img
                               src={work.imageUrl}
                               alt={work.title}
@@ -595,11 +615,11 @@ export const ArtworkDetail = ({
                               loading="lazy"
                             />
                           </div>
-                          <p className="text-white/50 text-[10px] mt-1.5 line-clamp-2 leading-tight font-display group-hover/card:text-white/70 transition-colors">
+                          <p className="text-white/75 text-xs mt-2 line-clamp-2 leading-snug font-display group-hover/card:text-white transition-colors">
                             {work.title}
                           </p>
                           {work.date && (
-                            <p className="text-white/30 text-[9px] mt-0.5">{work.date}</p>
+                            <p className="text-white/50 text-[11px] mt-0.5 font-display">{work.date}</p>
                           )}
                         </a>
                       ))}
@@ -648,14 +668,14 @@ export const ArtworkDetail = ({
 
             {/* Bottom links: copyright + view original + download */}
             <div className="mt-10 pt-6 border-t border-white/[0.06] text-xs font-display">
-              <p className="text-white/35 mb-3">{copyrightText}</p>
+              <p className="text-white/55 mb-3">{copyrightText}</p>
               <div className="flex items-center gap-5">
                 {item.url && (
                   <a
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white/55 hover:text-white/85 transition-colors underline-offset-4 hover:underline"
+                    className="text-white/75 hover:text-white transition-colors underline-offset-4 hover:underline text-sm"
                   >
                     View at source
                   </a>
@@ -663,7 +683,7 @@ export const ArtworkDetail = ({
                 {canDownload && (
                   <button
                     onClick={handleDownload}
-                    className="text-white/55 hover:text-white/85 transition-colors underline-offset-4 hover:underline"
+                    className="text-white/75 hover:text-white transition-colors underline-offset-4 hover:underline text-sm"
                   >
                     Download image
                   </button>
@@ -695,9 +715,9 @@ const ExpandableSection = ({
   <div>
     <button
       onClick={onToggle}
-      className="w-full flex items-center justify-between py-3 text-left group"
+      className="w-full flex items-center justify-between py-3.5 text-left group"
     >
-      <span className="text-[10px] uppercase tracking-[0.2em] text-white/45 font-display group-hover:text-white/75 transition-colors">
+      <span className="text-[11px] uppercase tracking-[0.18em] text-white/60 font-display group-hover:text-white/90 transition-colors">
         {title}
       </span>
       <motion.svg
@@ -707,7 +727,7 @@ const ExpandableSection = ({
         fill="none"
         stroke="currentColor"
         strokeWidth="1.5"
-        className="text-white/30 group-hover:text-white/60 transition-colors"
+        className="text-white/45 group-hover:text-white/75 transition-colors"
         animate={{ rotate: open ? 180 : 0 }}
         transition={{ duration: 0.2 }}
       >
