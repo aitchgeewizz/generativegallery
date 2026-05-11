@@ -1,185 +1,52 @@
-# Infinite Canvas Portfolio
+# Slower. Stranger.
 
-An interactive infinite canvas portfolio inspired by Cash App's design system. Features a draggable infinite grid of 3D geometric shapes with smooth animations and hover effects.
+> Most design inspiration online is a firehose. This is the opposite.
+> A few unexpected things at a time, pulled from real museum archives.
+> The next best thing to walking into a gallery, made for the days you can't.
 
-## Features
+A slow museum-archive browser. Drag through a small handful of unexpected works pulled from three major public museum APIs — the Art Institute of Chicago, Cooper Hewitt (Smithsonian Design), and Harvard Art Museums. Click any piece for richer detail. Refresh for a new handful.
 
-✅ **Infinite Canvas Navigation**
-- Click-and-drag panning with smooth momentum scrolling
-- Boundary-free exploration in all directions
-- Cursor feedback (grab/grabbing)
+The thesis (and why this exists at all) lives in [SPEC.md](SPEC.md).
 
-✅ **3D Geometric Shapes**
-- Six different Three.js primitives: Box, Sphere, Torus, Cone, Cylinder, Octahedron
-- Vibrant Cash App-inspired color palette
-- Smooth rotation animations on hover
+## Running locally
 
-✅ **Performance Optimized**
-- Viewport culling - only renders visible items + buffer zone
-- 60fps target performance
-- Efficient React + Framer Motion + Three.js integration
-
-✅ **Interactive Design**
-- Hover effects with scale transformation and glow
-- Click vs drag detection (threshold: 10px)
-- Dark background (#0a0a0a) with modern aesthetic
-- Subtle shadows and borders
-
-## Tech Stack
-
-- **React 18** + **TypeScript** - Type-safe component architecture
-- **Vite** - Fast build tooling and hot module replacement
-- **Framer Motion** - Smooth animations and drag interactions
-- **Three.js** + **@react-three/fiber** + **@react-three/drei** - 3D graphics
-- **Tailwind CSS** - Utility-first styling
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+ and npm
-
-### Installation
+Requires Node 18+. The Art Institute API works without a key; Cooper Hewitt and Harvard need free API keys (see [API_KEYS_SETUP.md](API_KEYS_SETUP.md)).
 
 ```bash
-# Install dependencies
+cp .env.example .env       # fill in your API keys
 npm install
-
-# Start development server
 npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
 ```
 
-The dev server will start at `http://localhost:5173/`
+Dev server at `http://localhost:5173`.
 
-## Project Structure
+## Deployment
+
+Deploys to Vercel. Push to the production branch and Vercel builds + deploys automatically. **Remember:** set `VITE_COOPER_HEWITT_API_KEY` and `VITE_HARVARD_KEY` in Vercel's project settings — they don't read from `.env` in production.
+
+Domain: **slowerstranger.com** (pending DNS pointing to Vercel).
+
+## Stack
+
+React 19 · TypeScript · Vite · Framer Motion · Tailwind CSS · custom **SeasonMix** typeface · pluggable collection registry in `src/collections/`.
+
+## Structure
 
 ```
 src/
+├── App.tsx                       Root state, collection loading
 ├── components/
-│   ├── InfiniteCanvas.tsx    # Main canvas with drag-to-pan
-│   ├── GridItem.tsx           # Individual portfolio item card
-│   └── Shape3D.tsx            # Three.js geometric shapes
-├── hooks/
-│   ├── useInfiniteCanvas.ts   # Canvas drag/pan state management
-│   └── useViewportItems.ts    # Viewport culling logic
-├── data/
-│   └── placeholderItems.ts    # Generates 50 placeholder items
-├── types/
-│   └── index.ts               # TypeScript type definitions
-├── App.tsx                     # Root component
-├── main.tsx                    # App entry point
-└── index.css                   # Global styles + Tailwind
+│   ├── InfiniteCanvas.tsx        Looped drag-pan canvas
+│   ├── PortfolioItem.tsx         Single artwork tile
+│   ├── ArtworkDetail.tsx         Full-screen detail view
+│   └── CollectionSwitcher.tsx    Bottom-right pill (TBD: see SPEC.md, deprecated as primary nav)
+├── collections/                  One file per museum, registered together
+├── services/                     Raw API clients per museum
+├── data/                         API → PortfolioItem adapters
+├── hooks/                        Drag, grid loop, enrichment
+└── utils/tagExtractor.ts         Tag normalisation
 ```
 
-## Key Implementation Details
+## Project history
 
-### Drag & Pan Logic
-
-The `useInfiniteCanvas` hook manages:
-- Drag state tracking
-- Momentum scrolling with velocity-based inertia
-- Click vs drag detection (< 10px = click)
-- Smooth spring animations via Framer Motion
-
-### Viewport Culling
-
-The `useViewportItems` hook:
-- Calculates visible bounds with 500px buffer zone
-- Filters items for rendering
-- Updates on canvas pan/drag
-- Significantly improves performance with large item counts
-
-### 3D Shapes
-
-Each `GridItem` contains:
-- Three.js Canvas with camera and lighting
-- Animated 3D geometric primitive
-- Hover-triggered rotation speed increase
-- Idle rotation animation
-
-## Customization
-
-### Add More Items
-
-Edit `src/data/placeholderItems.ts`:
-
-```typescript
-export const placeholderItems = generatePlaceholderItems(100); // Increase count
-```
-
-### Change Colors
-
-Update the color palette in `src/data/placeholderItems.ts`:
-
-```typescript
-const colors = [
-  '#00D632', // Add your colors here
-  // ...
-];
-```
-
-### Modify Grid Layout
-
-Adjust spacing in `src/data/placeholderItems.ts`:
-
-```typescript
-const itemsPerRow = 10; // Items per row
-const itemWidth = 300;  // Item width in px
-const itemHeight = 300; // Item height in px
-const gap = 60;         // Gap between items
-```
-
-### Adjust Hover Effects
-
-Edit `src/components/GridItem.tsx`:
-
-```typescript
-whileHover={{
-  scale: 1.1, // Increase scale
-  transition: { duration: 0.2 }, // Faster transition
-}}
-```
-
-## Next Steps
-
-- [ ] Replace placeholder 3D shapes with real project assets
-- [ ] Implement detail view/modal on item click
-- [ ] Add filtering or search functionality
-- [ ] Integrate with CMS or data source
-- [ ] Add loading states and transitions
-- [ ] Implement responsive design for mobile/tablet
-- [ ] Add keyboard navigation (arrow keys)
-- [ ] Implement zoom in/out functionality
-
-## Performance Tips
-
-1. **Viewport Culling**: Adjust buffer size in `useViewportItems` if needed
-2. **Three.js Optimization**: Reduce polygon count on 3D shapes for mobile
-3. **Lazy Loading**: Implement image lazy loading if using real assets
-4. **Memoization**: Components already use React.memo where beneficial
-5. **Bundle Size**: Use dynamic imports for heavy components
-
-## Browser Support
-
-- Chrome/Edge (latest)
-- Firefox (latest)
-- Safari (latest)
-- Mobile browsers with WebGL support
-
-## License
-
-ISC
-
-## References
-
-- [Portfolio Specification](./Portfolio%20Spec.md)
-- [Cash App Design System](https://design.cash.app/)
-- [Framer Motion Docs](https://www.framer.com/motion/)
-- [Three.js Docs](https://threejs.org/docs/)
-- [React Three Fiber](https://docs.pmnd.rs/react-three-fiber/)
+This codebase started as a personal portfolio site and pivoted into the museum browser that became Slower. Stranger. Original context lives in [`_archive/`](_archive/README.md).
