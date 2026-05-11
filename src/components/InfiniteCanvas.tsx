@@ -95,12 +95,15 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
       }}
       onPointerDown={handlePointerDown}
     >
-      {/* Items layer - GPU-accelerated transform */}
+      {/* Items layer - GPU-accelerated transform.
+          The leading translate(50%, 50%) puts world-origin (0,0) at the
+          viewport centre on first paint, so a centered grid laid out
+          around (0,0) sits in the middle of the screen instead of
+          bleeding off the top-left. */}
       <div
         className="absolute inset-0 will-change-transform"
         style={{
-          transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
-          // Use translate3d for GPU acceleration
+          transform: `translate(50%, 50%) translate3d(${position.x}px, ${position.y}px, 0)`,
         }}
       >
         {loopedItems.map((item) => (
@@ -112,9 +115,9 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
         ))}
       </div>
 
-      {/* Info overlay */}
-      <div className="absolute bottom-6 left-6 text-white/50 text-sm pointer-events-none select-none font-display">
-        <p>Click and drag to explore • Click artwork to view details • {items.length} unique artworks</p>
+      {/* Info overlay — thesis-aligned: no count claim, no "click-bait", just orientation */}
+      <div className="absolute bottom-6 left-6 text-white/35 text-xs pointer-events-none select-none font-display tracking-wide">
+        <p>Drag to look around &middot; Click a piece to read about it</p>
       </div>
 
       {/* Artwork Detail View */}

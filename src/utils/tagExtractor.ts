@@ -2,218 +2,131 @@ import { PortfolioItem } from '../types';
 
 export interface Tag {
   label: string;
-  category: 'medium' | 'type' | 'style' | 'subject' | 'culture' | 'attribute';
-  color: string; // Tailwind color classes
+  category: 'maker' | 'style' | 'culture' | 'period';
+  color: string; // Tailwind utility classes
 }
 
 /**
- * Smart tag extraction from portfolio items
- * Normalizes and categorizes tags across all collections
- * Returns max 6 most relevant tags per item
+ * Tag extraction per SPEC.md.
+ *
+ * The thesis explicitly rules out generic subject/medium tags as
+ * recommendation-engine furniture ("more like this"). Only the kinds of
+ * threads a curious person would follow in a real catalogue are kept:
+ *
+ *   - by maker     (the named creator)
+ *   - by style     (Impressionism, Bauhaus, Modernism — art-history threads)
+ *   - by culture   (Japanese, Indigenous — context, not similarity)
+ *   - by period    (19th century, c. 1850s — situating in time)
+ *
+ * Generic categories that are deliberately NOT exposed as tags:
+ *
+ *   - medium       (Oil Painting, Bronze) — too generic, "more of this kind of thing"
+ *   - subjectTitles (still life, fish, tablecloth) — pure recommendation-engine vibe
+ *   - themeTitles   (water, nature) — same problem
+ *   - generic attributes (Hand-drawn, Original) — meaningless
+ *
+ * All tags share a single neutral colour treatment. No rainbow categories.
  */
+const TAG_CLASSES = 'bg-white/[0.06] text-white/70 hover:bg-white/[0.12] hover:text-white/90 border border-white/[0.08]';
+
+const MAX_TAGS = 4;
+
+/** Strip parenthetical / nationality noise from an artist name. */
+const cleanMakerName = (raw: string): string =>
+  raw
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\s*,?\s*\b(?:19th|18th|17th|20th|21st|nineteenth|eighteenth|seventeenth|twentieth|twenty-first)\s+century\b/gi, '')
+    .replace(/\s*,\s*(?:b\.|d\.|c\.)?\s*\d{4}.*$/i, '') // strip dates
+    .replace(/\s*\d{4}\s*[-–]\s*\d{4}.*$/i, '')
+    .replace(/^(?:by\s+|attributed to\s+|after\s+)/i, '')
+    .trim();
+
+/** Period strings like "19th century" / "nineteenth century" reduce to a canonical key. */
+const periodKey = (raw: string): string =>
+  raw
+    .toLowerCase()
+    .replace(/nineteenth/g, '19th')
+    .replace(/eighteenth/g, '18th')
+    .replace(/seventeenth/g, '17th')
+    .replace(/twentieth/g, '20th')
+    .replace(/twenty-first/g, '21st')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 export const extractTags = (item: PortfolioItem): Tag[] => {
   const tags: Tag[] = [];
+  const seenKeys = new Set<string>();
 
-  // 1. MEDIUM/TECHNIQUE (highest priority - always show if available)
-  if (item.medium) {
-    const mediumTags = normalizeMedium(item.medium);
-    tags.push(...mediumTags.map(label => ({
-      label,
-      category: 'medium' as const,
-      color: 'bg-purple-500/20 text-purple-300 hover:bg-purple-500/30',
-    })));
-  }
-
-  // 2. OBJECT TYPE (Design collection)
-  if (item.objectType) {
-    tags.push({
-      label: item.objectType,
-      category: 'type',
-      color: 'bg-blue-500/20 text-blue-300 hover:bg-blue-500/30',
-    });
-  }
-
-  // 3. STYLE (Art collections)
-  if (item.styleTitles && item.styleTitles.length > 0) {
-    // Take first 2 styles
-    tags.push(...item.styleTitles.slice(0, 2).map(style => ({
-      label: style,
-      category: 'style' as const,
-      color: 'bg-pink-500/20 text-pink-300 hover:bg-pink-500/30',
-    })));
-  }
-
-  // 4. SUBJECTS/THEMES
-  if (item.subjectTitles && item.subjectTitles.length > 0) {
-    // Take first 2 subjects
-    tags.push(...item.subjectTitles.slice(0, 2).map(subject => ({
-      label: subject,
-      category: 'subject' as const,
-      color: 'bg-green-500/20 text-green-300 hover:bg-green-500/30',
-    })));
-  }
-
-  // 5. CULTURE/DEPARTMENT (Cleveland Museum)
-  if (item.culture) {
-    tags.push({
-      label: item.culture,
-      category: 'culture',
-      color: 'bg-orange-500/20 text-orange-300 hover:bg-orange-500/30',
-    });
-  }
-  if (item.department && !item.culture) {
-    const cultureTags = normalizeDepartment(item.department);
-    tags.push(...cultureTags.map(label => ({
-      label,
-      category: 'culture' as const,
-      color: 'bg-orange-500/20 text-orange-300 hover:bg-orange-500/30',
-    })));
-  }
-
-  // 6. SPECIAL ATTRIBUTES (hand-drawn, female artist, etc.)
-  const attributes = extractAttributes(item);
-  tags.push(...attributes.map(label => ({
-    label,
-    category: 'attribute' as const,
-    color: 'bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30',
-  })));
-
-  // Return max 6 tags, prioritized by category order
-  return tags.slice(0, 6);
-};
-
-/**
- * Normalize medium/technique into searchable tags
- * Examples: "Lithograph on paper" → ["Lithograph", "Print"]
- */
-const normalizeMedium = (medium: string): string[] => {
-  const normalized = medium.toLowerCase();
-  const tags: string[] = [];
-
-  // Printing techniques
-  if (normalized.includes('lithograph')) tags.push('Lithograph');
-  if (normalized.includes('screen print') || normalized.includes('silkscreen')) tags.push('Screen Print');
-  if (normalized.includes('etching')) tags.push('Etching');
-  if (normalized.includes('woodcut') || normalized.includes('wood cut')) tags.push('Woodcut');
-  if (normalized.includes('engraving')) tags.push('Engraving');
-  if (normalized.includes('offset')) tags.push('Offset Print');
-
-  // Painting
-  if (normalized.includes('oil')) tags.push('Oil Painting');
-  if (normalized.includes('acrylic')) tags.push('Acrylic');
-  if (normalized.includes('watercolor')) tags.push('Watercolor');
-  if (normalized.includes('gouache')) tags.push('Gouache');
-
-  // Drawing
-  if (normalized.includes('pencil')) tags.push('Pencil');
-  if (normalized.includes('charcoal')) tags.push('Charcoal');
-  if (normalized.includes('ink')) tags.push('Ink');
-  if (normalized.includes('pastel')) tags.push('Pastel');
-
-  // Photography
-  if (normalized.includes('photograph')) tags.push('Photography');
-  if (normalized.includes('gelatin silver')) tags.push('Silver Gelatin Print');
-
-  // Sculpture & 3D
-  if (normalized.includes('bronze')) tags.push('Bronze Sculpture');
-  if (normalized.includes('marble')) tags.push('Marble Sculpture');
-  if (normalized.includes('ceramic')) tags.push('Ceramic');
-  if (normalized.includes('porcelain')) tags.push('Porcelain');
-
-  // Textile
-  if (normalized.includes('textile') || normalized.includes('fabric')) tags.push('Textile');
-  if (normalized.includes('tapestry')) tags.push('Tapestry');
-
-  // If no specific match, try to extract first meaningful word
-  if (tags.length === 0) {
-    const firstWord = medium.split(/[,\(]/)[0].trim();
-    if (firstWord.length > 3 && firstWord.length < 20) {
-      tags.push(firstWord);
+  const add = (label: string, category: Tag['category']) => {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    const key = `${category}:${trimmed.toLowerCase()}`;
+    if (seenKeys.has(key)) return;
+    // Also dedupe periods that say the same thing differently.
+    if (category === 'period') {
+      const pk = `period:${periodKey(trimmed)}`;
+      if (seenKeys.has(pk)) return;
+      seenKeys.add(pk);
     }
+    seenKeys.add(key);
+    tags.push({ label: trimmed, category, color: TAG_CLASSES });
+  };
+
+  // 1. MAKER — the most useful "follow a thread" affordance.
+  const maker = extractArtistName(item);
+  if (maker) add(maker, 'maker');
+
+  // 2. STYLE — Impressionism, Bauhaus, Modernism (art-history threads).
+  if (item.styleTitles) {
+    for (const s of item.styleTitles.slice(0, 2)) add(s, 'style');
   }
 
-  return tags;
+  // 3. CULTURE — Japanese, European, etc. when it adds context.
+  if (item.culture) add(item.culture, 'culture');
+
+  // 4. PERIOD — 19th century, decade, etc., normalised.
+  // Many items don't carry an explicit period but have it embedded in
+  // styleTitles (e.g. "19th century") — those already land in step 2.
+  // Harvard adapters sometimes stash period in classificationTitles.
+
+  return tags.slice(0, MAX_TAGS);
 };
 
 /**
- * Extract culture/region from department names
- */
-const normalizeDepartment = (department: string): string[] => {
-  const normalized = department.toLowerCase();
-  const tags: string[] = [];
-
-  if (normalized.includes('japanese')) tags.push('Japanese');
-  if (normalized.includes('chinese')) tags.push('Chinese');
-  if (normalized.includes('korean')) tags.push('Korean');
-  if (normalized.includes('european')) tags.push('European');
-  if (normalized.includes('american')) tags.push('American');
-  if (normalized.includes('african')) tags.push('African');
-  if (normalized.includes('islamic')) tags.push('Islamic');
-  if (normalized.includes('indian')) tags.push('Indian');
-  if (normalized.includes('contemporary')) tags.push('Contemporary');
-  if (normalized.includes('modern')) tags.push('Modern');
-
-  return tags;
-};
-
-/**
- * Extract special attributes
- */
-const extractAttributes = (item: PortfolioItem): string[] => {
-  const attributes: string[] = [];
-
-  // Check medium for hand-drawn indicators
-  if (item.medium) {
-    const medium = item.medium.toLowerCase();
-    if (medium.includes('hand') && (medium.includes('drawn') || medium.includes('painted'))) {
-      attributes.push('Hand-drawn');
-    }
-    if (medium.includes('original')) {
-      attributes.push('Original');
-    }
-  }
-
-  // Check description for keywords
-  if (item.description) {
-    const desc = item.description.toLowerCase();
-    if (desc.includes('limited edition')) attributes.push('Limited Edition');
-    if (desc.includes('signed')) attributes.push('Signed');
-  }
-
-  return attributes;
-};
-
-/**
- * Extract the primary artist/creator name from a portfolio item
- * Checks participants first (creative roles), falls back to description
+ * Extract the primary maker/creator name from a portfolio item.
+ * Checks participants first (creative roles), falls back to description.
  */
 export const extractArtistName = (item: PortfolioItem): string | null => {
-  // Generic names that shouldn't be sent to Wikipedia
-  const genericNames = [
-    'unknown', 'artist unknown', 'unknown artist', 'unidentified',
-    'anonymous', 'unattributed', 'various', 'maker unknown',
-    'designer unknown', 'not known', 'unsigned',
+  // Words that signal "no real maker named" — checked as substrings so
+  // e.g. "Unidentified Artist", "Anonymous Designer", "Maker unknown"
+  // all get filtered out as un-clickable tags.
+  const genericTokens = [
+    'unknown', 'unidentified', 'anonymous', 'unattributed',
+    'various', 'not known', 'unsigned', 'unattributed',
   ];
 
-  const isGeneric = (name: string) =>
-    genericNames.some(g => name.toLowerCase().trim() === g);
+  const isGeneric = (name: string) => {
+    const lower = name.toLowerCase().trim();
+    return genericTokens.some(t => lower.includes(t));
+  };
 
-  // Check participants for creative roles
+  // Participants with a creative role
   if (item.participants && item.participants.length > 0) {
     const donorRoles = ['donated', 'donor', 'previously owned', 'owned by'];
     const creator = item.participants.find(p => {
       const role = p.role?.toLowerCase() || '';
       return !donorRoles.some(d => role.includes(d));
     });
-    if (creator && !isGeneric(creator.name)) return creator.name;
+    if (creator) {
+      const cleaned = cleanMakerName(creator.name);
+      if (cleaned && !isGeneric(cleaned)) return cleaned;
+    }
   }
 
-  // Fall back to description — often "Artist Name\nNationality, dates" or "Name (Nationality, dates)"
+  // Description: "Name\nNationality, dates" or "Name (Nationality, dates)"
   if (item.description) {
-    // Split on newline first (Art Institute format: "Name\nNationality, dates")
     const firstLine = item.description.split('\n')[0].trim();
-    // Strip parenthetical info like "(French, 1836-1904)" or "(American"
-    const cleaned = firstLine.replace(/\s*\(.*$/, '');
+    const cleaned = cleanMakerName(firstLine);
     const match = cleaned.match(/^([^,]+)/);
     if (match && match[1].trim().length > 0 && match[1].trim().length < 60) {
       const name = match[1].trim();
@@ -225,8 +138,8 @@ export const extractArtistName = (item: PortfolioItem): string | null => {
 };
 
 /**
- * Search items by tag
- * Returns items that match the tag across all collections
+ * Search items by tag (in-memory). Kept for any caller that still uses it;
+ * the canonical "follow a thread" path is the API search in App.tsx.
  */
 export const searchByTag = (items: PortfolioItem[], tagLabel: string): PortfolioItem[] => {
   return items.filter(item => {
@@ -235,19 +148,14 @@ export const searchByTag = (items: PortfolioItem[], tagLabel: string): Portfolio
   });
 };
 
-/**
- * Get all unique tags from a collection of items
- * Useful for showing popular tags or tag cloud
- */
+/** Unique tags across a list, with counts. */
 export const getAllTags = (items: PortfolioItem[]): Map<string, number> => {
   const tagCounts = new Map<string, number>();
-
   items.forEach(item => {
     const tags = extractTags(item);
     tags.forEach(tag => {
       tagCounts.set(tag.label, (tagCounts.get(tag.label) || 0) + 1);
     });
   });
-
   return tagCounts;
 };

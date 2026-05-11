@@ -56,11 +56,15 @@ const generateGridPositions = (count: number, centered: boolean = false) => {
 };
 
 /**
- * Get grid dimensions for looping calculations
+ * Get grid dimensions for the canvas loop tile.
+ *
+ * Per SPEC.md, the canvas wraps a *small* set so you come back around
+ * to the same pieces, like circling a small gallery room. 4 wide x 3
+ * tall = 12 slots is the active layout for v1.
  */
 export const getGridDimensions = () => {
-  const itemsPerRow = 8;
-  const itemsPerCol = 4;
+  const itemsPerRow = 4;
+  const itemsPerCol = 3;
   const itemWidth = 200;
   const itemHeight = 200;
   const gap = 100;
