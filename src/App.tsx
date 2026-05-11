@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { InfiniteCanvas } from './components/InfiniteCanvas';
-import { collections } from './collections/registry';
+import { TopNav, SourceMode } from './components/TopNav';
+import { Intro } from './components/Intro';
+import { AboutModal } from './components/AboutModal';
+import { collections, getCollection } from './collections/registry';
 import { PortfolioItem, ActiveFilter } from './types';
 
 /**
  * Target visible artworks per refresh. Per SPEC.md: finite, curated,
  * not infinite. 24 in a 6x4 loop tile reads as a small gallery wall.
- * (12, the previous setting, read as sparse — Hannah's call.)
  *
  * PER_SOURCE is intentionally a bit higher than HANDFUL/3 so that
  * after we filter out items lacking images and interleave the rest,
@@ -51,7 +53,7 @@ const layoutCentered = (raw: PortfolioItem[]): PortfolioItem[] => {
  */
 const interleave = <T,>(lists: T[][]): T[] => {
   const out: T[] = [];
-  const max = Math.max(...lists.map(l => l.length));
+  const max = Math.max(...lists.map((l) => l.length));
   for (let i = 0; i < max; i++) {
     for (const list of lists) {
       if (i < list.length) out.push(list[i]);
@@ -60,14 +62,24 @@ const interleave = <T,>(lists: T[][]): T[] => {
   return out;
 };
 
+const SOURCE_STORAGE_KEY = 'slowerstranger:sourceMode';
+
 function App() {
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>({ mode: 'collection' });
+  const [aboutOpen, setAboutOpen] = useState(false);
 
-  // Mixed load: a handful from each source, interleaved, laid out together.
+  // Source mode: Mixed (default) or a single archive. Persisted so a
+  // visitor's preference survives refresh.
+  const [sourceMode, setSourceMode] = useState<SourceMode>(() => {
+    const saved = localStorage.getItem(SOURCE_STORAGE_KEY);
+    const valid: SourceMode[] = ['mixed', 'art-institute', 'met-design', 'harvard'];
+    return (valid.includes(saved as SourceMode) ? (saved as SourceMode) : 'mixed');
+  });
+
   useEffect(() => {
     let cancelled = false;
 
@@ -76,29 +88,38 @@ function App() {
       setLoading(true);
       setError(null);
 
-      console.log(`🔄 Loading a handful (${HANDFUL}) from ${collections.length} archives…`);
-
       try {
-        const perSource = await Promise.all(
-          collections.map(async (c) => {
-            try {
-              return await c.fetchItems(PER_SOURCE);
-            } catch (err) {
-              console.warn(`⚠️ ${c.name} failed:`, err);
-              return [];
-            }
-          }),
-        );
+        let raw: PortfolioItem[];
+
+        if (sourceMode === 'mixed') {
+          console.log(`🔄 Loading mixed handful (${HANDFUL}) from ${collections.length} archives…`);
+          const perSource = await Promise.all(
+            collections.map(async (c) => {
+              try {
+                return await c.fetchItems(PER_SOURCE);
+              } catch (err) {
+                console.warn(`⚠️ ${c.name} failed:`, err);
+                return [] as PortfolioItem[];
+              }
+            }),
+          );
+          raw = interleave(perSource).slice(0, HANDFUL);
+        } else {
+          const c = getCollection(sourceMode);
+          if (!c) throw new Error(`Unknown source: ${sourceMode}`);
+          console.log(`🔄 Loading ${HANDFUL} from ${c.name}…`);
+          raw = await c.fetchItems(HANDFUL);
+          raw = raw.slice(0, HANDFUL);
+        }
 
         if (cancelled) return;
 
-        const mixed = interleave(perSource).slice(0, HANDFUL);
-        if (mixed.length === 0) {
-          throw new Error('No items returned from any source — try refreshing.');
+        if (raw.length === 0) {
+          throw new Error('No items returned — try refreshing.');
         }
 
-        const placed = layoutCentered(mixed);
-        console.log(`✅ Loaded ${placed.length} items (mixed from ${collections.length} sources)`);
+        const placed = layoutCentered(raw);
+        console.log(`✅ Loaded ${placed.length} items (${sourceMode})`);
         setItems(placed);
         setLoading(false);
       } catch (err) {
@@ -109,8 +130,6 @@ function App() {
       }
     };
 
-    // Only do the mixed-load when not in a tag-filter view; tag clicks
-    // own their own loading flow below.
     if (activeFilter.mode === 'collection') {
       loadHandful();
     }
@@ -118,7 +137,13 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [refreshSeed, activeFilter.mode]);
+  }, [refreshSeed, activeFilter.mode, sourceMode]);
+
+  const handleSourceChange = (mode: SourceMode) => {
+    setSourceMode(mode);
+    localStorage.setItem(SOURCE_STORAGE_KEY, mode);
+    setActiveFilter({ mode: 'collection' });
+  };
 
   const handleRefresh = () => {
     setActiveFilter({ mode: 'collection' });
@@ -126,8 +151,8 @@ function App() {
   };
 
   // Clicking a tag in the detail view ("more by this maker", etc.) searches
-  // across all sources in parallel. There is no "current collection" to
-  // scope to — the experience is unified.
+  // across all sources in parallel regardless of current source mode —
+  // a thread is a thread, follow it where it leads.
   const handleTagClick = async (tagLabel: string) => {
     console.log(`🏷️ Following the thread: ${tagLabel}`);
 
@@ -176,13 +201,13 @@ function App() {
   // Error state
   if (error && !loading) {
     return (
-      <div className="w-full h-screen flex items-center justify-center bg-[#0a0a0a]">
+      <div className="w-full h-screen flex items-center justify-center bg-[#0a0a0a] gallery-grain">
         <div className="flex flex-col items-center gap-8 max-w-md text-center px-4">
           <div className="space-y-3">
             <h2 className="text-xl font-display text-white/60 tracking-wide">
               The archive couldn&rsquo;t open
             </h2>
-            <p className="text-white/25 text-sm">{error}</p>
+            <p className="text-white/25 text-sm font-display">{error}</p>
           </div>
           <button
             onClick={handleRefresh}
@@ -195,30 +220,16 @@ function App() {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="w-full h-screen flex items-center justify-center bg-[#0a0a0a]">
-        <motion.p
-          animate={{ opacity: [0.2, 0.5, 0.2] }}
-          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-          className="text-white/50 text-lg font-display tracking-wide"
-        >
-          {activeFilter.mode === 'tag-filter' ? activeFilter.tagLabel : 'A moment…'}
-        </motion.p>
-      </div>
-    );
-  }
-
   // Empty state after a tag search
-  if (items.length === 0 && activeFilter.mode === 'tag-filter') {
+  if (!loading && items.length === 0 && activeFilter.mode === 'tag-filter') {
     return (
-      <div className="w-full h-screen flex items-center justify-center bg-[#0a0a0a]">
+      <div className="w-full h-screen flex items-center justify-center bg-[#0a0a0a] gallery-grain">
         <div className="flex flex-col items-center gap-8 max-w-md text-center px-4">
           <div className="space-y-3">
             <h2 className="text-xl font-display text-white/60 tracking-wide">
               Nothing for &ldquo;{activeFilter.tagLabel}&rdquo;
             </h2>
-            <p className="text-white/25 text-sm">
+            <p className="text-white/25 text-sm font-display">
               The thread doesn&rsquo;t lead anywhere in these archives.
             </p>
           </div>
@@ -235,30 +246,39 @@ function App() {
 
   return (
     <div className="w-full h-screen overflow-hidden bg-[#0a0a0a] relative gallery-grain">
-      <InfiniteCanvas items={items} onTagClick={handleTagClick} />
-
-      {/* Bottom-right controls — a single refresh, no collection picker.
-          See SPEC.md: no collection-picker as primary nav for v1. */}
-      <div className="fixed bottom-6 right-6 z-40 flex items-center gap-3">
-        {activeFilter.mode === 'tag-filter' && (
-          <button
-            onClick={handleClearFilter}
-            className="text-white/40 hover:text-white/70 transition-colors text-sm font-display tracking-wide"
+      <AnimatePresence mode="wait">
+        {loading ? (
+          <Intro key="intro" />
+        ) : (
+          <motion.div
+            key="canvas"
+            className="absolute inset-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
           >
-            &larr; Back
-          </button>
+            <InfiniteCanvas items={items} onTagClick={handleTagClick} />
+          </motion.div>
         )}
+      </AnimatePresence>
+
+      <TopNav
+        sourceMode={sourceMode}
+        onSourceChange={handleSourceChange}
+        onRefresh={handleRefresh}
+        onAboutOpen={() => setAboutOpen(true)}
+      />
+
+      {activeFilter.mode === 'tag-filter' && !loading && (
         <button
-          onClick={handleRefresh}
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-white/40 hover:text-white/70 transition-all"
-          title="A new handful"
-          aria-label="Refresh for a new handful"
+          onClick={handleClearFilter}
+          className="fixed bottom-6 left-6 z-40 text-white/40 hover:text-white/70 transition-colors text-sm font-display tracking-wide"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
-          </svg>
+          &larr; Back to the wall
         </button>
-      </div>
+      )}
+
+      <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </div>
   );
 }
