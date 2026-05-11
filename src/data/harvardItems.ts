@@ -107,8 +107,20 @@ export const generateHarvardItems = async (count: number = 32): Promise<Portfoli
       return [];
     }
 
+    // Drop anything without a usable image URL so we never render a
+    // broken thumbnail. Harvard's `primaryimageurl` is the canonical
+    // signal; `images[].iiifbaseuri` is a fallback that still produces
+    // a real URL through getHarvardImageUrl.
+    const withImages = artworks.filter(a => {
+      const url = getHarvardImageUrl(a, 843);
+      return typeof url === 'string' && url.length > 0;
+    });
+    if (withImages.length < artworks.length) {
+      console.log(`🖼️ Harvard: filtered to ${withImages.length} with valid imagery`);
+    }
+
     // Convert to PortfolioItems
-    const items = artworks.map((artwork, i) =>
+    const items = withImages.map((artwork, i) =>
       convertHarvardToPortfolioItem(artwork, i, positions)
     );
 

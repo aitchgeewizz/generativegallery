@@ -5,18 +5,22 @@ import { collections } from './collections/registry';
 import { PortfolioItem, ActiveFilter } from './types';
 
 /**
- * Target visible artworks per refresh. The thesis (SPEC.md) calls for
- * "a handful of unexpected things" — finite, not a flood. The grid
- * tiles 4 wide x 3 tall so each refresh fills the loop exactly.
+ * Target visible artworks per refresh. Per SPEC.md: finite, curated,
+ * not infinite. 24 in a 6x4 loop tile reads as a small gallery wall.
+ * (12, the previous setting, read as sparse — Hannah's call.)
+ *
+ * PER_SOURCE is intentionally a bit higher than HANDFUL/3 so that
+ * after we filter out items lacking images and interleave the rest,
+ * we still land on ~24 even when one museum returns a partial set.
  */
-const HANDFUL = 12;
-const PER_SOURCE = Math.ceil(HANDFUL / 3);
+const HANDFUL = 24;
+const PER_SOURCE = 10;
 
 const GRID = {
-  itemsPerRow: 4,
+  itemsPerRow: 6,
   itemWidth: 200,
   itemHeight: 200,
-  gap: 100,
+  gap: 80,
 };
 
 /**

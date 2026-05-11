@@ -85,20 +85,6 @@ interface CooperHewittResponse {
 const BASE_URL = 'https://api.collection.cooperhewitt.org/rest/';
 const API_KEY = import.meta.env.VITE_COOPER_HEWITT_API_KEY || '';
 
-// Search terms focused on graphic design and posters
-const DESIGN_SEARCH_TERMS = [
-  'poster',
-  'graphic design',
-  'typography',
-  'bauhaus',
-  'swiss design',
-  'modernist',
-  'constructivist',
-  'art deco',
-  'mid century',
-  'exhibition poster',
-];
-
 /**
  * Get image URL from Cooper Hewitt object
  */
@@ -164,49 +150,45 @@ export const fetchRandomDesignObjects = async (count: number = 32): Promise<Desi
 
     const results: DesignObjectData[] = [];
     const seen = new Set<string>();
-    const searchTermsToUse = [...DESIGN_SEARCH_TERMS].sort(() => Math.random() - 0.5);
 
-    // Overfetch — need extra to filter out items without usable images
-    const target = count * 2;
+    // Previous approach: broad overlapping search terms ("poster", "bauhaus", "modernist", ...)
+    // returned the same hero pieces repeatedly. After dedup we'd land on ~4 items
+    // regardless of how many requests we made.
+    //
+    // New approach: fewer but more *distinct* search terms, fetched in parallel,
+    // with a random page per term so each refresh surfaces a different slice of
+    // the collection. Image is the only hard filter.
+    const distinctTerms = ['poster', 'textile', 'wallpaper', 'ceramic', 'furniture', 'metalwork'];
+    const target = Math.max(count * 2, 30);
 
-    // Try multiple search terms to get diverse results
-    for (const term of searchTermsToUse) {
-      if (results.length >= target) break;
-
-      // Use random page numbers (1-20) to get different results each time
-      // This ensures we get 32 NEW items on each refresh
-      const randomPage = Math.floor(Math.random() * 20) + 1;
-      const objects = await searchDesignObjects(term, randomPage, 50);
-
-      // Filter for objects that actually have a resolvable image URL
-      const qualityObjects = objects.filter((obj) => {
-        // Must have an actual image URL we can use
-        const imageUrl = getDesignImageUrl(obj);
-        if (!imageUrl) return false;
-
-        // Prefer objects with designers/creators or dates
-        const hasCreator = obj.participants && obj.participants.length > 0;
-        const hasDate = obj.date && obj.date.length > 0;
-
-        return hasCreator || hasDate;
-      });
-
-      for (const obj of qualityObjects) {
-        if (!seen.has(obj.id)) {
-          seen.add(obj.id);
-          results.push(obj);
+    const pages = await Promise.all(
+      distinctTerms.map(async (term) => {
+        const randomPage = Math.floor(Math.random() * 10) + 1;
+        try {
+          return await searchDesignObjects(term, randomPage, 100);
+        } catch {
+          return [] as DesignObjectData[];
         }
-      }
+      }),
+    );
 
-      // Add a small delay to be respectful to the API
-      await new Promise((resolve) => setTimeout(resolve, 100));
+    for (const page of pages) {
+      for (const obj of page) {
+        if (results.length >= target) break;
+        if (!getDesignImageUrl(obj)) continue;
+        if (seen.has(obj.id)) continue;
+        seen.add(obj.id);
+        results.push(obj);
+      }
+      if (results.length >= target) break;
     }
 
-    // Shuffle and limit to requested count
+    // Shuffle and limit to requested count so each load surfaces a different
+    // ordering of whatever pool we built.
     const shuffled = results.sort(() => Math.random() - 0.5);
     const finalResults = shuffled.slice(0, count);
 
-    console.log(`✅ Successfully loaded ${finalResults.length} design objects from Cooper Hewitt`);
+    console.log(`✅ Successfully loaded ${finalResults.length} design objects from Cooper Hewitt (pool of ${results.length})`);
 
     return finalResults;
   } catch (error) {
@@ -240,13 +222,8 @@ export const searchDesignObjectsByTag = async (
     for (let page = 1; page <= maxPages && results.length < count; page++) {
       const objects = await searchDesignObjects(tag, page, 100);
 
-      // Filter for objects with resolvable image URLs
-      const qualityObjects = objects.filter((obj) => {
-        const imageUrl = getDesignImageUrl(obj);
-        if (!imageUrl) return false;
-        const hasCreator = obj.participants && obj.participants.length > 0;
-        return hasCreator || obj.date;
-      });
+      // Image is the only hard requirement (matches fetchRandomDesignObjects).
+      const qualityObjects = objects.filter((obj) => !!getDesignImageUrl(obj));
 
       results.push(...qualityObjects);
 

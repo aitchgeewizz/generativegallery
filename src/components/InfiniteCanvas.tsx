@@ -1,8 +1,7 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useMemo } from 'react';
 import { PortfolioItem as PortfolioItemType } from '../types';
 import { useSmoothDrag } from '../hooks/useSmoothDrag';
 import { useInfiniteGrid } from '../hooks/useInfiniteGrid';
-import { getGridDimensions } from '../data/placeholderItems';
 import { PortfolioItem } from './PortfolioItem';
 import { ArtworkDetail } from './ArtworkDetail';
 
@@ -12,9 +11,31 @@ interface InfiniteCanvasProps {
 }
 
 /**
- * Main infinite canvas component with buttery smooth drag and seamless looping
- * Rebuilt from scratch for world-class performance
+ * Compute the canvas loop tile from the actual items rather than a
+ * static assumption. This means the wraparound always hugs the real
+ * content — if a refresh returns 14 items instead of 24, we tile every
+ * 14 items, not every 24, so the canvas never shows half-empty rows of
+ * void between repeats.
+ *
+ * Items come in pre-laid-out (see App.tsx#layoutCentered), so we read
+ * their bounding box rather than re-deriving it from a row/column rule.
  */
+const computeLoopBounds = (items: PortfolioItemType[]): { width: number; height: number } => {
+  if (items.length === 0) return { width: 1, height: 1 };
+  // Item tile size = 200 + 80 gap; matches App.tsx#GRID.
+  const TILE = 280;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const it of items) {
+    if (it.x < minX) minX = it.x;
+    if (it.y < minY) minY = it.y;
+    if (it.x > maxX) maxX = it.x;
+    if (it.y > maxY) maxY = it.y;
+  }
+  // Add one tile of trailing space so the right/bottom edge of the last
+  // item plus its gap completes the cell before the loop repeats.
+  return { width: maxX - minX + TILE, height: maxY - minY + TILE };
+};
+
 export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
   // New smooth drag hook with momentum
   const { position, isDragging, handlePointerDown, isClick } = useSmoothDrag();
@@ -22,15 +43,15 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
   // Selected artwork for detail view
   const [selectedItem, setSelectedItem] = useState<PortfolioItemType | null>(null);
 
-  // Get grid dimensions for 8x4 layout
-  const gridDimensions = getGridDimensions();
+  // Loop tile sized to actual items — see computeLoopBounds above.
+  const loopBounds = useMemo(() => computeLoopBounds(items), [items]);
 
   // Get seamlessly looping items using 3x3 tile pattern
   const loopedItems = useInfiniteGrid({
     baseItems: items,
     offset: position,
-    gridWidth: gridDimensions.width,
-    gridHeight: gridDimensions.height,
+    gridWidth: loopBounds.width,
+    gridHeight: loopBounds.height,
   });
 
   const handleItemClick = useCallback(

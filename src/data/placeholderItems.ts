@@ -58,16 +58,17 @@ const generateGridPositions = (count: number, centered: boolean = false) => {
 /**
  * Get grid dimensions for the canvas loop tile.
  *
- * Per SPEC.md, the canvas wraps a *small* set so you come back around
- * to the same pieces, like circling a small gallery room. 4 wide x 3
- * tall = 12 slots is the active layout for v1.
+ * The canvas wraps a finite curated set so you come back around to the
+ * same pieces — like circling a small gallery room. 6 wide x 4 tall =
+ * 24 slots is the active layout for v1. Bumped up from 12 (which read
+ * as sparse) but still finite — never an endless Pinterest scroll.
  */
 export const getGridDimensions = () => {
-  const itemsPerRow = 4;
-  const itemsPerCol = 3;
+  const itemsPerRow = 6;
+  const itemsPerCol = 4;
   const itemWidth = 200;
   const itemHeight = 200;
-  const gap = 100;
+  const gap = 80;
 
   return {
     width: itemsPerRow * (itemWidth + gap),
@@ -97,8 +98,17 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
 
     console.log(`✅ Received ${artworks.length} artworks from Art Institute of Chicago`);
 
+    // Drop anything without a real image_id so we never construct a
+    // broken IIIF URL like .../undefined/full/843,/0/default.jpg
+    const withImages = artworks.filter(a =>
+      typeof a.image_id === 'string' && a.image_id.length > 0,
+    );
+    if (withImages.length < artworks.length) {
+      console.log(`🖼️ Filtered to ${withImages.length} with valid image_id`);
+    }
+
     // Convert API artworks to items
-    const items = artworks.map((artwork, i) => {
+    const items = withImages.map((artwork, i) => {
       const imageUrl = getImageUrl(artwork.image_id, 843);
 
       return {

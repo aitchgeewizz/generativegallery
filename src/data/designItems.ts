@@ -13,18 +13,6 @@ const designColors = [
 ];
 
 /**
- * Fisher-Yates shuffle
- */
-function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
-
-/**
  * Generate grid layout positions (8x4 grid = 32 items)
  * @param centered - If true, centers the grid around (0, 0)
  */
@@ -68,29 +56,12 @@ const generateGridPositions = (count: number, centered: boolean = false) => {
 };
 
 /**
- * Curated local design collection
- * Fallback when Met API doesn't have enough results
- */
-const curatedLocalDesign = [
-  {
-    title: 'Bauhaus Exhibition Poster',
-    artist: 'László Moholy-Nagy',
-    date: '1923',
-    imageUrl: 'https://images.metmuseum.org/CRDImages/md/original/DT5337.jpg',
-  },
-  {
-    title: 'Swiss Typography Poster',
-    artist: 'Josef Müller-Brockmann',
-    date: '1958',
-    imageUrl: 'https://images.metmuseum.org/CRDImages/md/original/DT5338.jpg',
-  },
-  // More will be added as fallback
-];
-
-/**
- * Generate design items from Cooper Hewitt Smithsonian Design Museum
- * GUARANTEED to return exactly 'count' items with images
- * Mixes API results with curated fallbacks for 100% reliability
+ * Generate design items from Cooper Hewitt Smithsonian Design Museum.
+ *
+ * If the API returns fewer items than requested, that is the truth — we
+ * return what came back. We do not pad with hand-coded stubs. Per
+ * SPEC.md: never lie about data. App.tsx compensates by pulling more
+ * from the other sources.
  */
 export const generateDesignItems = async (count: number = 32): Promise<PortfolioItem[]> => {
   const positions = generateGridPositions(count);
@@ -167,53 +138,13 @@ export const generateDesignItems = async (count: number = 32): Promise<Portfolio
       };
     });
 
-    // ALWAYS pad to guarantee exactly 'count' items with images
-    if (items.length < count) {
-      console.log(`⭐ Padding with ${count - items.length} curated design items to ensure complete collection`);
-      const shuffledLocal = shuffleArray(curatedLocalDesign);
-      const needed = count - items.length;
-
-      for (let i = 0; i < needed; i++) {
-        const design = shuffledLocal[i % shuffledLocal.length];
-        items.push({
-          id: items.length,
-          x: positions[items.length].x,
-          y: positions[items.length].y,
-          shape: shapes[Math.floor(Math.random() * shapes.length)],
-          color: designColors[Math.floor(Math.random() * designColors.length)],
-          title: design.title,
-          description: `${design.artist} (${design.date})`,
-          imageUrl: design.imageUrl,
-          collectionSource: 'Curated Design Collection',
-        });
-      }
-    }
-
-    console.log(`✅ Final design collection: ${items.length} items (all with images)`);
+    console.log(`✅ Returning ${items.length} design items from Cooper Hewitt`);
     return items;
   } catch (error) {
-    console.error('❌ Cooper Hewitt API failed, using 100% curated design collection:', error);
-
-    // Full fallback to local curated design
-    const shuffledDesign = shuffleArray(curatedLocalDesign);
-
-    items = Array.from({ length: count }, (_, i) => {
-      const design = shuffledDesign[i % shuffledDesign.length];
-      return {
-        id: i,
-        x: positions[i].x,
-        y: positions[i].y,
-        shape: shapes[Math.floor(Math.random() * shapes.length)],
-        color: designColors[Math.floor(Math.random() * designColors.length)],
-        title: design.title,
-        description: `${design.artist} (${design.date})`,
-        imageUrl: design.imageUrl,
-        collectionSource: 'Curated Design Collection',
-      };
-    });
-
-    console.log(`✨ Generated ${items.length} items with curated design`);
-    return items;
+    console.error('❌ Cooper Hewitt API failed:', error);
+    // Return empty — App.tsx will compensate by pulling more from the
+    // other sources. We do not pad with broken hand-coded stubs.
+    return [];
   }
 };
 

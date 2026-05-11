@@ -118,9 +118,13 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
       throw new Error('No artworks found from any theme');
     }
 
-    // Shuffle and take extra for filtering
+    // Shuffle and take extra for filtering. We multiply by 8 (with a
+    // floor of 60) because the quality filter (public_domain + image_id
+    // + title + artist) typically passes ~30-40% of fetched details,
+    // and a small count (e.g. 10) without a floor would only fetch 30
+    // IDs → ~3 quality items, which is far too sparse.
     const allIds = [...idSet].sort(() => Math.random() - 0.5);
-    const idsToFetch = allIds.slice(0, count * 3);
+    const idsToFetch = allIds.slice(0, Math.max(count * 8, 60));
 
     console.log(`📦 Found ${idSet.size} unique IDs, fetching ${idsToFetch.length} details in bulk...`);
 
