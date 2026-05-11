@@ -219,16 +219,9 @@ export const ArtworkDetail = ({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className="fixed inset-0 bg-black z-50 gallery-grain"
+        className="fixed inset-0 z-50 gallery-grain"
+        style={{ background: 'var(--bg)' }}
       >
-        {/* Spotlight glow from artwork color */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: `radial-gradient(ellipse at center, ${item.color}0A 0%, transparent 65%)`,
-          }}
-        />
-
         {/* Image Stage — between left rail (~60px) and right panel (PANEL_W).
             Clicking the empty background (not the image itself) closes the
             detail view, so visitors don't have to find the X. The image
@@ -285,17 +278,17 @@ export const ArtworkDetail = ({
                 transition={{ duration: 0.3 }}
                 className="w-72 h-72 rounded-lg flex flex-col items-center justify-center p-8 text-center"
                 style={{
-                  background: `linear-gradient(145deg, ${item.color}15 0%, ${item.color}08 50%, ${item.color}20 100%)`,
-                  border: `1px solid ${item.color}30`,
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
                 }}
               >
-                <h2 className="text-white/60 text-xl font-display leading-tight mb-3">
+                <h2 className="text-xl font-display leading-tight mb-3" style={{ color: 'var(--text-2)' }}>
                   {item.title}
                 </h2>
                 {item.description && (
-                  <p className="text-white/30 text-sm">{item.description}</p>
+                  <p className="text-sm" style={{ color: 'var(--text-3)' }}>{item.description}</p>
                 )}
-                <p className="text-white/20 text-xs mt-6">Image unavailable</p>
+                <p className="text-xs mt-6" style={{ color: 'var(--text-4)' }}>Image unavailable</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -306,8 +299,12 @@ export const ArtworkDetail = ({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute top-6 text-white/30 text-xs font-display tracking-wide z-20 pointer-events-none"
-            style={{ left: `calc(50% - ${PANEL_W / 2}px)`, transform: 'translateX(-50%)' }}
+            className="absolute top-6 text-xs font-display tracking-wide z-20 pointer-events-none"
+            style={{
+              left: `calc(50% - ${PANEL_W / 2}px)`,
+              transform: 'translateX(-50%)',
+              color: 'var(--text-4)',
+            }}
           >
             {Math.round(zoom * 100)}% — scroll to zoom, double-click to reset
           </motion.div>
@@ -321,13 +318,14 @@ export const ArtworkDetail = ({
           className="absolute left-0 top-0 bottom-0 w-14 md:w-16 z-40 flex flex-col items-center pt-4 pb-4"
           style={{
             background:
-              'linear-gradient(to right, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.2) 70%, transparent 100%)',
+              'linear-gradient(to right, var(--bg) 0%, var(--bg) 50%, transparent 100%)',
           }}
         >
           {/* Close */}
           <button
             onClick={onClose}
-            className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center text-white/60 hover:text-white transition-all backdrop-blur-sm shrink-0 mb-4"
+            className="w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-colors shrink-0 mb-4"
+            style={{ background: 'var(--surface)', color: 'var(--text-2)' }}
             aria-label="Close detail view"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -338,7 +336,8 @@ export const ArtworkDetail = ({
           {/* Up arrow */}
           <button
             onClick={() => navigate(-1)}
-            className="text-white/40 hover:text-white/80 transition-colors p-1 rounded-full hover:bg-white/5 shrink-0 mb-1"
+            className="p-1 rounded-full transition-colors shrink-0 mb-1"
+            style={{ color: 'var(--text-3)' }}
             aria-label="Previous artwork"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -369,9 +368,10 @@ export const ArtworkDetail = ({
                   }}
                   className={`shrink-0 rounded-md overflow-hidden transition-all duration-200 ${
                     isCurrent
-                      ? 'w-10 h-10 md:w-11 md:h-11 ring-2 ring-white/60 opacity-100'
-                      : 'w-8 h-8 md:w-9 md:h-9 opacity-40 hover:opacity-80 hover:scale-110'
+                      ? 'w-10 h-10 md:w-11 md:h-11 opacity-100'
+                      : 'w-8 h-8 md:w-9 md:h-9 opacity-45 hover:opacity-90 hover:scale-110'
                   }`}
+                  style={isCurrent ? { boxShadow: '0 0 0 2px var(--text)' } : undefined}
                 >
                   {navItem.imageUrl ? (
                     <img
@@ -382,7 +382,7 @@ export const ArtworkDetail = ({
                       draggable={false}
                     />
                   ) : (
-                    <div className="w-full h-full" style={{ background: navItem.color }} />
+                    <div className="w-full h-full" style={{ background: 'var(--surface)' }} />
                   )}
                 </button>
               );
@@ -392,7 +392,8 @@ export const ArtworkDetail = ({
           {/* Down arrow */}
           <button
             onClick={() => navigate(1)}
-            className="text-white/40 hover:text-white/80 transition-colors p-1 rounded-full hover:bg-white/5 shrink-0 mt-1"
+            className="p-1 rounded-full transition-colors shrink-0 mt-1"
+            style={{ color: 'var(--text-3)' }}
             aria-label="Next artwork"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -401,7 +402,10 @@ export const ArtworkDetail = ({
           </button>
 
           {/* Counter */}
-          <span className="text-white/50 text-[10px] font-display tabular-nums tracking-wide mt-2 shrink-0">
+          <span
+            className="text-[10px] font-display tabular-nums tracking-wide mt-2 shrink-0"
+            style={{ color: 'var(--text-3)' }}
+          >
             {currentIndex >= 0 ? currentIndex + 1 : '?'}/{navigationItems.length}
           </span>
         </motion.div>
@@ -411,17 +415,19 @@ export const ArtworkDetail = ({
           initial={{ opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-          className="absolute right-0 top-0 bottom-0 z-30 flex flex-col bg-[#0a0a0a]/95 backdrop-blur-md border-l border-white/[0.06]"
-          style={{ width: PANEL_W }}
+          className="absolute right-0 top-0 bottom-0 z-30 flex flex-col backdrop-blur-md"
+          style={{
+            width: PANEL_W,
+            background: 'var(--bg)',
+            borderLeft: '1px solid var(--border)',
+          }}
         >
-          {/* Explicit close X — top-right corner of the panel. The back
-              arrow on the left rail also closes, and clicking the empty
-              image area closes too, but a visible X is what people look
-              for first. */}
+          {/* Explicit close X — top-right corner of the panel. */}
           <button
             onClick={onClose}
             aria-label="Close"
-            className="absolute top-5 right-5 z-10 w-9 h-9 flex items-center justify-center rounded-full text-white/45 hover:text-white/95 hover:bg-white/[0.06] transition-colors"
+            className="absolute top-5 right-5 z-10 w-9 h-9 flex items-center justify-center rounded-full transition-colors"
+            style={{ color: 'var(--text-3)' }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <path d="M6 6l12 12M6 18L18 6" />
@@ -436,25 +442,29 @@ export const ArtworkDetail = ({
               {artistName && (
                 <button
                   onClick={() => handleSearchAllCollections(artistName)}
-                  className="text-white/70 text-xs font-display tracking-[0.2em] uppercase hover:text-white/95 transition-colors block text-left underline-offset-4 hover:underline mb-3"
+                  className="text-xs font-display tracking-[0.18em] uppercase transition-colors block text-left underline-offset-4 hover:underline mb-3"
+                  style={{ color: 'var(--text-2)' }}
                 >
                   {artistName}
                 </button>
               )}
 
-              {/* Title */}
-              <h1 className="text-white text-3xl font-display italic leading-tight">
+              {/* Title — roman, not italic (Hannah's call) */}
+              <h1 className="text-3xl font-display leading-tight" style={{ color: 'var(--text)' }}>
                 {item.title}
               </h1>
 
               {/* Medium / one-line metadata */}
               {item.medium && (
-                <p className="text-white/55 text-sm mt-3 font-display">{item.medium}</p>
+                <p className="text-sm mt-3 font-display" style={{ color: 'var(--text-2)' }}>{item.medium}</p>
               )}
 
               {/* Collection source */}
               {item.collectionSource && (
-                <p className="text-white/35 text-[11px] tracking-[0.18em] uppercase font-display mt-5">
+                <p
+                  className="text-[11px] tracking-[0.18em] uppercase font-display mt-5"
+                  style={{ color: 'var(--text-3)' }}
+                >
                   {item.collectionSource}
                 </p>
               )}
@@ -462,15 +472,21 @@ export const ArtworkDetail = ({
 
             {/* Short description */}
             {shortText && (
-              <p className="mt-6 text-white/70 text-sm leading-relaxed font-display">
+              <p
+                className="mt-6 text-sm leading-relaxed font-display"
+                style={{ color: 'var(--text-2)' }}
+              >
                 {shortText}
               </p>
             )}
 
-            {/* Tags — "follow a thread" */}
+            {/* Tags — "follow a thread" (grayscale only, Displaay-style) */}
             {tags.length > 0 && (
               <div className="mt-7">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-white/35 font-display mb-3">
+                <p
+                  className="text-[10px] uppercase tracking-[0.2em] font-display mb-3"
+                  style={{ color: 'var(--text-3)' }}
+                >
                   Follow a thread
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -478,7 +494,12 @@ export const ArtworkDetail = ({
                     <button
                       key={i}
                       onClick={() => handleSearchAllCollections(tag.label)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-display tracking-wide transition-all ${tag.color}`}
+                      className="px-3 py-1.5 rounded-full text-xs font-display tracking-wide transition-colors"
+                      style={{
+                        color: 'var(--text-2)',
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                      }}
                     >
                       {tag.label}
                     </button>
@@ -488,7 +509,7 @@ export const ArtworkDetail = ({
             )}
 
             {/* Divider */}
-            <div className="h-px bg-white/[0.06] my-8" />
+            <div className="h-px my-8" style={{ background: 'var(--border)' }} />
 
             {/* ── Enrichment sections (on-demand) ── */}
             <div className="space-y-1">
@@ -514,9 +535,9 @@ export const ArtworkDetail = ({
                           />
                         )}
                         <div className="min-w-0">
-                          <p className="text-white/90 text-sm font-display">{artistName}</p>
+                          <p className="text-sm font-display" style={{ color: 'var(--text)' }}>{artistName}</p>
                           {(enrichment.artistInfo.born || enrichment.artistInfo.died) && (
-                            <p className="text-white/65 text-xs mt-0.5 font-display">
+                            <p className="text-xs mt-0.5 font-display" style={{ color: 'var(--text-2)' }}>
                               {enrichment.artistInfo.born && enrichment.artistInfo.died
                                 ? `${enrichment.artistInfo.born} – ${enrichment.artistInfo.died}`
                                 : enrichment.artistInfo.born
@@ -525,14 +546,14 @@ export const ArtworkDetail = ({
                             </p>
                           )}
                           {enrichment.artistInfo.nationality && (
-                            <p className="text-white/65 text-xs mt-0.5 font-display">
+                            <p className="text-xs mt-0.5 font-display" style={{ color: 'var(--text-2)' }}>
                               {enrichment.artistInfo.nationality}
                             </p>
                           )}
                         </div>
                       </div>
                       {enrichment.artistInfo.summary && (
-                        <p className="text-white/80 text-sm leading-relaxed font-display">
+                        <p className="text-sm leading-relaxed font-display" style={{ color: 'var(--text-2)' }}>
                           {enrichment.artistInfo.summary}
                         </p>
                       )}
@@ -561,7 +582,7 @@ export const ArtworkDetail = ({
                 )}
                 {enrichment.artworkContext && (
                   <div className="space-y-3">
-                    <p className="text-white/70 text-sm leading-relaxed font-display">
+                    <p className="text-sm leading-relaxed font-display" style={{ color: 'var(--text-2)' }}>
                       {enrichment.artworkContext.summary}
                     </p>
                     {enrichment.artworkContext.wikiUrl && (
@@ -583,14 +604,14 @@ export const ArtworkDetail = ({
                   {enrichment.relatedLoading && (
                     <div className="flex gap-3 animate-pulse">
                       {[1, 2, 3].map((i) => (
-                        <div key={i} className="w-24 shrink-0">
-                          <div className="w-24 h-24 bg-white/5 rounded-md" />
+                        <div key={i} className="w-28 shrink-0">
+                          <div className="w-28 h-28 rounded-md" style={{ background: 'var(--surface)' }} />
                         </div>
                       ))}
                     </div>
                   )}
                   {enrichment.relatedFetched && enrichment.relatedWorks.length === 0 && !enrichment.relatedLoading && (
-                    <p className="text-white/40 text-sm font-display italic">
+                    <p className="text-sm font-display italic" style={{ color: 'var(--text-3)' }}>
                       No other works found in museum collections.
                     </p>
                   )}
@@ -607,7 +628,7 @@ export const ArtworkDetail = ({
                           rel="noopener noreferrer"
                           className="w-28 shrink-0 group/card"
                         >
-                          <div className="w-28 h-28 rounded-md overflow-hidden bg-white/5">
+                          <div className="w-28 h-28 rounded-md overflow-hidden" style={{ background: 'var(--surface)' }}>
                             <img
                               src={work.imageUrl}
                               alt={work.title}
@@ -615,11 +636,19 @@ export const ArtworkDetail = ({
                               loading="lazy"
                             />
                           </div>
-                          <p className="text-white/75 text-xs mt-2 line-clamp-2 leading-snug font-display group-hover/card:text-white transition-colors">
+                          <p
+                            className="text-xs mt-2 line-clamp-2 leading-snug font-display transition-colors"
+                            style={{ color: 'var(--text)' }}
+                          >
                             {work.title}
                           </p>
                           {work.date && (
-                            <p className="text-white/50 text-[11px] mt-0.5 font-display">{work.date}</p>
+                            <p
+                              className="text-[11px] mt-0.5 font-display"
+                              style={{ color: 'var(--text-3)' }}
+                            >
+                              {work.date}
+                            </p>
                           )}
                         </a>
                       ))}
@@ -640,10 +669,10 @@ export const ArtworkDetail = ({
                       <div className="space-y-1.5">
                         {creativeParticipants.map((p, i) => (
                           <div key={i}>
-                            <span className="text-white/50">{p.role}: </span>
-                            <span className="text-white/70">{p.name}</span>
+                            <span style={{ color: 'var(--text-3)' }}>{p.role}: </span>
+                            <span style={{ color: 'var(--text) ' }}>{p.name}</span>
                             {p.date && (
-                              <span className="text-white/40 text-xs ml-1">({p.date})</span>
+                              <span className="text-xs ml-1" style={{ color: 'var(--text-3)' }}>({p.date})</span>
                             )}
                           </div>
                         ))}
@@ -667,15 +696,16 @@ export const ArtworkDetail = ({
             </div>
 
             {/* Bottom links: copyright + view original + download */}
-            <div className="mt-10 pt-6 border-t border-white/[0.06] text-xs font-display">
-              <p className="text-white/55 mb-3">{copyrightText}</p>
+            <div className="mt-10 pt-6 text-xs font-display" style={{ borderTop: '1px solid var(--border)' }}>
+              <p className="mb-3" style={{ color: 'var(--text-3)' }}>{copyrightText}</p>
               <div className="flex items-center gap-5">
                 {item.url && (
                   <a
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white/75 hover:text-white transition-colors underline-offset-4 hover:underline text-sm"
+                    className="transition-colors underline-offset-4 hover:underline text-sm"
+                    style={{ color: 'var(--text)' }}
                   >
                     View at source
                   </a>
@@ -683,7 +713,8 @@ export const ArtworkDetail = ({
                 {canDownload && (
                   <button
                     onClick={handleDownload}
-                    className="text-white/75 hover:text-white transition-colors underline-offset-4 hover:underline text-sm"
+                    className="transition-colors underline-offset-4 hover:underline text-sm"
+                    style={{ color: 'var(--text)' }}
                   >
                     Download image
                   </button>
@@ -717,7 +748,10 @@ const ExpandableSection = ({
       onClick={onToggle}
       className="w-full flex items-center justify-between py-3.5 text-left group"
     >
-      <span className="text-[11px] uppercase tracking-[0.18em] text-white/60 font-display group-hover:text-white/90 transition-colors">
+      <span
+        className="text-[11px] uppercase tracking-[0.18em] font-display transition-colors"
+        style={{ color: 'var(--text-2)' }}
+      >
         {title}
       </span>
       <motion.svg
@@ -727,7 +761,8 @@ const ExpandableSection = ({
         fill="none"
         stroke="currentColor"
         strokeWidth="1.5"
-        className="text-white/45 group-hover:text-white/75 transition-colors"
+        className="transition-colors"
+        style={{ color: 'var(--text-3)' }}
         animate={{ rotate: open ? 180 : 0 }}
         transition={{ duration: 0.2 }}
       >
@@ -752,10 +787,13 @@ const ExpandableSection = ({
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div>
-    <p className="text-[10px] uppercase tracking-[0.18em] text-white/40 font-display mb-1">
+    <p
+      className="text-[10px] uppercase tracking-[0.18em] font-display mb-1"
+      style={{ color: 'var(--text-3)' }}
+    >
       {label}
     </p>
-    <p className="text-white/70 font-display">{children}</p>
+    <p className="font-display" style={{ color: 'var(--text)' }}>{children}</p>
   </div>
 );
 
@@ -764,8 +802,8 @@ const SkeletonText = ({ lines = 3 }: { lines?: number }) => (
     {Array.from({ length: lines }, (_, i) => (
       <div
         key={i}
-        className="h-3 bg-white/5 rounded"
-        style={{ width: `${100 - (i % 3) * 12}%` }}
+        className="h-3 rounded"
+        style={{ width: `${100 - (i % 3) * 12}%`, background: 'var(--surface)' }}
       />
     ))}
   </div>
@@ -773,14 +811,15 @@ const SkeletonText = ({ lines = 3 }: { lines?: number }) => (
 
 const NoEnrichment = ({ query, label }: { query: string; label: string }) => (
   <div className="space-y-3">
-    <p className="text-white/40 text-sm font-display italic">
+    <p className="text-sm font-display italic" style={{ color: 'var(--text-3)' }}>
       No additional information available.
     </p>
     <a
       href={`https://www.google.com/search?q=${encodeURIComponent(query)}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 text-white/40 text-xs hover:text-white/65 transition-colors"
+      className="inline-flex items-center gap-1.5 text-xs transition-colors"
+      style={{ color: 'var(--text-2)' }}
     >
       {label}
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -795,7 +834,8 @@ const ExternalLink = ({ href, children }: { href: string; children: React.ReactN
     href={href}
     target="_blank"
     rel="noopener noreferrer"
-    className="inline-flex items-center gap-1.5 text-white/45 text-xs hover:text-white/70 transition-colors underline-offset-4 hover:underline"
+    className="inline-flex items-center gap-1.5 text-xs transition-colors underline-offset-4 hover:underline"
+    style={{ color: 'var(--text-2)' }}
   >
     {children}
     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

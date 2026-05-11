@@ -111,7 +111,7 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
       className="w-full h-screen overflow-hidden relative"
       style={{
         cursor: isDragging ? 'grabbing' : 'grab',
-        background: '#0a0a0a',
+        background: 'var(--bg)',
         touchAction: 'none', // Prevent default touch behaviors
       }}
       onPointerDown={handlePointerDown}
@@ -137,7 +137,10 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
       </div>
 
       {/* Info overlay — thesis-aligned: no count claim, no "click-bait", just orientation */}
-      <div className="absolute bottom-6 left-6 text-white/35 text-xs pointer-events-none select-none font-display tracking-wide">
+      <div
+        className="absolute bottom-6 left-6 text-xs pointer-events-none select-none font-display tracking-wide"
+        style={{ color: 'var(--text-3)' }}
+      >
         <p>Drag to look around &middot; Click a piece to read about it</p>
       </div>
 

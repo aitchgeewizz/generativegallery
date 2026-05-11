@@ -7,6 +7,9 @@ import { AboutModal } from './components/AboutModal';
 import { collections, getCollection } from './collections/registry';
 import { PortfolioItem, ActiveFilter } from './types';
 
+type Theme = 'dark' | 'light';
+const THEME_STORAGE_KEY = 'slowerstranger:theme';
+
 /**
  * Target visible artworks per refresh. Per SPEC.md: finite, curated,
  * not infinite. 24 in a 6x4 loop tile reads as a small gallery wall.
@@ -71,6 +74,23 @@ function App() {
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>({ mode: 'collection' });
   const [aboutOpen, setAboutOpen] = useState(false);
+
+  // Theme: dark is the default identity (gallery feel), light is a
+  // reading-mode alternative. Persisted to localStorage.
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    return saved === 'light' ? 'light' : 'dark';
+  });
+
+  // Apply theme to <html> via the `.dark` class (Tailwind darkMode:'class')
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
+
+  const handleThemeToggle = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
   // Source mode: Mixed (default) or a single archive. Persisted so a
   // visitor's preference survives refresh.
@@ -201,17 +221,18 @@ function App() {
   // Error state
   if (error && !loading) {
     return (
-      <div className="w-full h-screen flex items-center justify-center bg-[#0a0a0a] gallery-grain">
+      <div className="w-full h-screen flex items-center justify-center bg-[var(--bg)] gallery-grain">
         <div className="flex flex-col items-center gap-8 max-w-md text-center px-4">
           <div className="space-y-3">
-            <h2 className="text-xl font-display text-white/60 tracking-wide">
+            <h2 className="text-xl font-display tracking-wide" style={{ color: 'var(--text-2)' }}>
               The archive couldn&rsquo;t open
             </h2>
-            <p className="text-white/25 text-sm font-display">{error}</p>
+            <p className="text-sm font-display" style={{ color: 'var(--text-3)' }}>{error}</p>
           </div>
           <button
             onClick={handleRefresh}
-            className="text-white/40 hover:text-white/70 transition-colors text-sm font-display tracking-wide"
+            className="text-sm font-display tracking-wide transition-colors"
+            style={{ color: 'var(--text-2)' }}
           >
             Try again
           </button>
@@ -223,19 +244,20 @@ function App() {
   // Empty state after a tag search
   if (!loading && items.length === 0 && activeFilter.mode === 'tag-filter') {
     return (
-      <div className="w-full h-screen flex items-center justify-center bg-[#0a0a0a] gallery-grain">
+      <div className="w-full h-screen flex items-center justify-center bg-[var(--bg)] gallery-grain">
         <div className="flex flex-col items-center gap-8 max-w-md text-center px-4">
           <div className="space-y-3">
-            <h2 className="text-xl font-display text-white/60 tracking-wide">
+            <h2 className="text-xl font-display tracking-wide" style={{ color: 'var(--text-2)' }}>
               Nothing for &ldquo;{activeFilter.tagLabel}&rdquo;
             </h2>
-            <p className="text-white/25 text-sm font-display">
+            <p className="text-sm font-display" style={{ color: 'var(--text-3)' }}>
               The thread doesn&rsquo;t lead anywhere in these archives.
             </p>
           </div>
           <button
             onClick={handleClearFilter}
-            className="text-white/40 hover:text-white/70 transition-colors text-sm font-display tracking-wide"
+            className="text-sm font-display tracking-wide transition-colors"
+            style={{ color: 'var(--text-2)' }}
           >
             Back
           </button>
@@ -245,7 +267,7 @@ function App() {
   }
 
   return (
-    <div className="w-full h-screen overflow-hidden bg-[#0a0a0a] relative gallery-grain">
+    <div className="w-full h-screen overflow-hidden bg-[var(--bg)] relative gallery-grain">
       <AnimatePresence mode="wait">
         {loading ? (
           <Intro key="intro" />
@@ -267,12 +289,15 @@ function App() {
         onSourceChange={handleSourceChange}
         onRefresh={handleRefresh}
         onAboutOpen={() => setAboutOpen(true)}
+        theme={theme}
+        onThemeToggle={handleThemeToggle}
       />
 
       {activeFilter.mode === 'tag-filter' && !loading && (
         <button
           onClick={handleClearFilter}
-          className="fixed bottom-6 left-6 z-40 text-white/40 hover:text-white/70 transition-colors text-sm font-display tracking-wide"
+          className="fixed bottom-6 left-6 z-40 text-sm font-display tracking-wide transition-colors"
+          style={{ color: 'var(--text-3)' }}
         >
           &larr; Back to the wall
         </button>

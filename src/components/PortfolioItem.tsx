@@ -38,9 +38,12 @@ export const PortfolioItem = ({ item, onClick }: PortfolioItemProps) => {
     // If item has an image/gif URL, try to render it
     if (item.imageUrl) {
       return (
-        <div className="relative w-full h-full bg-[#111] rounded-sm overflow-hidden">
+        <div
+          className="relative w-full h-full rounded-sm overflow-hidden"
+          style={{ background: 'var(--bg-elev)' }}
+        >
           {!imageLoaded && !imageError && (
-            <div className="absolute inset-0 bg-[#111]" />
+            <div className="absolute inset-0" style={{ background: 'var(--bg-elev)' }} />
           )}
           {!imageError && (
             <img
@@ -90,27 +93,27 @@ export const PortfolioItem = ({ item, onClick }: PortfolioItemProps) => {
   };
 
   const renderFallbackCard = () => {
-    const color = item.color === '#000000' || item.color === '#FFFFFF' ? '#6366F1' : item.color;
+    // Theme-aware, grayscale-only. Museum-card aesthetic instead of
+    // per-item color tint. Title is the focus; description quiet.
     return (
       <div
         className="absolute inset-0 rounded-sm overflow-hidden flex flex-col justify-end p-4"
         style={{
-          background: `linear-gradient(145deg, ${color}18 0%, ${color}08 50%, ${color}20 100%)`,
-          border: `1px solid ${color}30`,
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
         }}
       >
-        <div
-          className="absolute top-3 right-3 w-2 h-2 rounded-full"
-          style={{ backgroundColor: `${color}60` }}
-        />
         <p
-          className="text-white/70 text-xs font-medium leading-tight line-clamp-3 font-display"
-          style={{ fontSize: '11px' }}
+          className="text-xs font-medium leading-tight line-clamp-3 font-display"
+          style={{ color: 'var(--text-2)' }}
         >
           {item.title}
         </p>
         {item.description && (
-          <p className="text-white/35 text-[9px] mt-1 leading-tight line-clamp-1">
+          <p
+            className="text-[10px] mt-1 leading-tight line-clamp-1 font-display"
+            style={{ color: 'var(--text-3)' }}
+          >
             {item.description}
           </p>
         )}
@@ -147,7 +150,9 @@ export const PortfolioItem = ({ item, onClick }: PortfolioItemProps) => {
           {renderContent()}
         </div>
 
-        {/* Hover effect */}
+        {/* Hover effect — a quiet white halo, theme-aware (the mix-blend
+            behaves the same way on both light and dark). No per-item
+            color tint per the grayscale design system. */}
         {isHovered && (
           <motion.div
             className="absolute inset-0 rounded-sm"
@@ -155,8 +160,8 @@ export const PortfolioItem = ({ item, onClick }: PortfolioItemProps) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             style={{
-              background: `radial-gradient(circle at center, ${item.color}15 0%, transparent 70%)`,
-              mixBlendMode: 'screen',
+              background:
+                'radial-gradient(circle at center, rgba(255,255,255,0.06) 0%, transparent 70%)',
               pointerEvents: 'none',
             }}
           />
