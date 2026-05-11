@@ -50,3 +50,8 @@ coverage/
 
 # Demo videos (too large for GitHub)
 App demos/
+
+# Per-machine dev config (the preview-tool launch config picks a free
+# port each time; not useful to share)
+.claude/launch.json
+.claude/worktrees/
