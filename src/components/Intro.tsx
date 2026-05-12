@@ -1,13 +1,17 @@
 import { motion } from 'framer-motion';
 
 /**
- * First-paint intro. Theme-aware (light/dark via tokens) and
- * typographically ambitious: SLOWER. STRANGER. set in caps with the
- * "STRANGER." in italic accent (Displaay-style mixed roman/italic
- * within a single line). The thesis hook follows in roman, then a
- * smaller orienting paragraph. "Loading the wall" pulses quietly at
- * the bottom.
+ * First-paint intro. Per Hannah's redesign:
+ * - One uniform large display size (no stepped hierarchy)
+ * - New copy: "SLOWER: STRANGER. A few unexpected pieces of art and
+ *   design we can appreciate and be inspired by. Not part of the
+ *   algorithm but from those who came before us."
+ * - "Loading the wall" animates as a left-to-right wave of opacity per
+ *   character, so the loading state is unmistakable.
  */
+
+const LOADING_TEXT = 'Loading the wall';
+
 export const Intro = () => {
   return (
     <motion.section
@@ -18,49 +22,48 @@ export const Intro = () => {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.6, ease: 'easeInOut' }}
     >
-      <div className="max-w-3xl px-8 text-center">
+      <div className="max-w-5xl px-8 text-center">
         <motion.h1
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.05, ease: 'easeOut' }}
-          className="font-display tracking-tight text-5xl md:text-7xl leading-[0.95]"
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          className="font-display leading-[1.05] text-4xl md:text-6xl lg:text-7xl tracking-tight"
           style={{ color: 'var(--text)' }}
         >
-          <span className="uppercase">Slower.</span>{' '}
-          <span className="uppercase italic">Stranger.</span>
+          <span className="uppercase">Slower: Stranger.</span>{' '}
+          A few unexpected pieces of art and design we can appreciate and be inspired by. Not part of the algorithm but from those who came before us.
         </motion.h1>
 
         <motion.p
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.25, ease: 'easeOut' }}
-          className="font-display mt-10 text-lg md:text-2xl leading-snug"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          className="font-display mt-16 text-lg md:text-2xl tracking-tight"
+          aria-label="Loading the wall"
           style={{ color: 'var(--text-2)' }}
         >
-          Most design inspiration online is a firehose.
-          <br />
-          This is <span className="italic">the opposite.</span>
-        </motion.p>
-
-        <motion.p
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.45, ease: 'easeOut' }}
-          className="font-display mt-8 text-base md:text-lg leading-relaxed max-w-xl mx-auto"
-          style={{ color: 'var(--text-3)' }}
-        >
-          A few unexpected things at a time, pulled from real museum archives.
-          The next best thing to walking into a gallery, made for the days you can&rsquo;t.
-        </motion.p>
-
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 0.5, 0] }}
-          transition={{ duration: 2.6, delay: 0.8, repeat: Infinity, ease: 'easeInOut' }}
-          className="font-display mt-16 text-xs tracking-[0.3em] uppercase"
-          style={{ color: 'var(--text-4)' }}
-        >
-          Loading the wall
+          {/* Character-by-character wave. Each char animates opacity
+              from low→high→low on a stagger so the word reads as a
+              left-to-right pulse, repeating. */}
+          {LOADING_TEXT.split('').map((char, i) =>
+            char === ' ' ? (
+              <span key={i}>&nbsp;</span>
+            ) : (
+              <motion.span
+                key={i}
+                animate={{ opacity: [0.18, 1, 0.18] }}
+                transition={{
+                  duration: 2.2,
+                  delay: i * 0.08,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+                style={{ display: 'inline-block' }}
+              >
+                {char}
+              </motion.span>
+            ),
+          )}
         </motion.p>
       </div>
     </motion.section>

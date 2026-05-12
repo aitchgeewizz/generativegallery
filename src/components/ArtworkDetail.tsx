@@ -52,6 +52,9 @@ export const ArtworkDetail = ({
   const [direction, setDirection] = useState(0);
   const [mainImageError, setMainImageError] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  // Hide the right panel for an image-only "full view". Toggled by an
+  // icon in the top-right of the image stage or by pressing F.
+  const [panelHidden, setPanelHidden] = useState(false);
   const currentThumbRef = useRef<HTMLButtonElement>(null);
 
   // Derived
@@ -102,7 +105,8 @@ export const ArtworkDetail = ({
     [item, navigationItems, currentIndex, onSelectItem],
   );
 
-  // Keyboard nav: arrows step through, Escape closes (or resets zoom first).
+  // Keyboard nav: arrows step through, Escape closes (or resets zoom first),
+  // F toggles the right panel for an image-only "full view".
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!item) return;
@@ -112,10 +116,15 @@ export const ArtworkDetail = ({
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault();
         navigate(-1);
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        setPanelHidden((h) => !h);
       } else if (e.key === 'Escape') {
         if (zoom > 1) {
           setZoom(1);
           setPanOffset({ x: 0, y: 0 });
+        } else if (panelHidden) {
+          setPanelHidden(false);
         } else {
           onClose();
         }
@@ -123,7 +132,7 @@ export const ArtworkDetail = ({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [item, navigate, onClose, zoom]);
+  }, [item, navigate, onClose, zoom, panelHidden]);
 
   // Zoom with scroll wheel
   const handleWheel = useCallback(
@@ -213,22 +222,27 @@ export const ArtworkDetail = ({
         : 'Copyright status unknown';
 
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.3 }}
-        className="fixed inset-0 z-50 gallery-grain"
-        style={{ background: 'var(--bg)' }}
-      >
-        {/* Image Stage — between left rail (~60px) and right panel (PANEL_W).
+    // No outer AnimatePresence here — the parent (InfiniteCanvas)
+    // wraps us so the close animation fires when selectedItem goes
+    // to null. We slow the exit slightly and add a small scale so
+    // the close has weight.
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, scale: 0.99 }}
+      transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+      className="fixed inset-0 z-50 gallery-grain"
+      style={{ background: 'var(--bg)' }}
+    >
+        {/* Image Stage — between left rail (~60px) and right panel
+            (PANEL_W). When panelHidden is true, the stage expands to
+            the right edge. Animates via transition on `right`.
             Clicking the empty background (not the image itself) closes the
             detail view, so visitors don't have to find the X. The image
             also stops propagation so clicks on it don't close. */}
         <div
-          className="absolute top-0 bottom-0 left-14 md:left-16 flex items-center justify-center"
-          style={{ right: PANEL_W }}
+          className="absolute top-0 bottom-0 left-14 md:left-16 flex items-center justify-center transition-[right] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+          style={{ right: panelHidden ? 0 : PANEL_W }}
           onWheel={handleWheel}
           onDoubleClick={handleDoubleClick}
           onClick={(e) => {
@@ -301,12 +315,56 @@ export const ArtworkDetail = ({
             animate={{ opacity: 1 }}
             className="absolute top-6 text-xs font-display tracking-wide z-20 pointer-events-none"
             style={{
-              left: `calc(50% - ${PANEL_W / 2}px)`,
+              left: panelHidden ? '50%' : `calc(50% - ${PANEL_W / 2}px)`,
               transform: 'translateX(-50%)',
               color: 'var(--text-4)',
             }}
           >
             {Math.round(zoom * 100)}% — scroll to zoom, double-click to reset
+          </motion.div>
+        )}
+
+        {/* Expand-image toggle. Sits at the right edge of the image
+            stage (just left of the panel when visible, or far-right
+            when the panel is hidden). The panel has its own close X;
+            this is for view mode only, never duplicates close. */}
+        <motion.button
+          onClick={() => setPanelHidden((h) => !h)}
+          aria-label={panelHidden ? 'Show details panel' : 'View image only'}
+          title={panelHidden ? 'Show details (F)' : 'View image only (F)'}
+          className="absolute top-5 z-[45] w-9 h-9 flex items-center justify-center rounded-full transition-colors"
+          style={{ background: 'var(--surface)', color: 'var(--text-2)' }}
+          animate={{ right: panelHidden ? 20 : PANEL_W + 16 }}
+          transition={{ duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          {panelHidden ? (
+            // contract icon — bring panel back
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 4v6h6V4M9 20v-6h6v6M3 9h6M3 15h6M15 9h6M15 15h6" />
+            </svg>
+          ) : (
+            // expand icon — image-only mode
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 4h6M4 4v6M20 4h-6M20 4v6M4 20h6M4 20v-6M20 20h-6M20 20v-6" />
+            </svg>
+          )}
+        </motion.button>
+
+        {/* Position indicator — only when panel hidden, sits at bottom
+            of the image stage so the viewer always knows where they
+            are in the handful. */}
+        {panelHidden && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            transition={{ duration: 0.3 }}
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 text-xs font-display tabular-nums tracking-[0.18em] uppercase pointer-events-none"
+            style={{ color: 'var(--text-3)' }}
+          >
+            {currentIndex >= 0 ? currentIndex + 1 : '?'} / {navigationItems.length}
           </motion.div>
         )}
 
@@ -410,16 +468,17 @@ export const ArtworkDetail = ({
           </span>
         </motion.div>
 
-        {/* ── Right-side info panel ───────────────────────────────── */}
+        {/* ── Right-side info panel — slides out when panelHidden ── */}
         <motion.aside
           initial={{ opacity: 0, x: 24 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+          animate={{ opacity: panelHidden ? 0 : 1, x: panelHidden ? PANEL_W : 0 }}
+          transition={{ duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }}
           className="absolute right-0 top-0 bottom-0 z-30 flex flex-col backdrop-blur-md"
           style={{
             width: PANEL_W,
             background: 'var(--bg)',
             borderLeft: '1px solid var(--border)',
+            pointerEvents: panelHidden ? 'none' : 'auto',
           }}
         >
           {/* Explicit close X — top-right corner of the panel. */}
@@ -723,8 +782,7 @@ export const ArtworkDetail = ({
             </div>
           </div>
         </motion.aside>
-      </motion.div>
-    </AnimatePresence>
+    </motion.div>
   );
 };
 

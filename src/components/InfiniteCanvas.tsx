@@ -1,4 +1,5 @@
 import { useCallback, useState, useEffect, useMemo } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { PortfolioItem as PortfolioItemType } from '../types';
 import { useSmoothDrag } from '../hooks/useSmoothDrag';
 import { useInfiniteGrid } from '../hooks/useInfiniteGrid';
@@ -144,16 +145,22 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
         <p>Drag to look around &middot; Click a piece to read about it</p>
       </div>
 
-      {/* Artwork Detail View */}
-      {selectedItem && (
-        <ArtworkDetail
-          item={selectedItem}
-          allItems={items}
-          onClose={handleCloseDetail}
-          onSelectItem={setSelectedItem}
-          onTagClick={onTagClick}
-        />
-      )}
+      {/* Artwork Detail View — wrapped in AnimatePresence so the
+          exit animation actually fires when selectedItem becomes null.
+          Without this wrapper, the component unmounts immediately
+          and the close feels abrupt. */}
+      <AnimatePresence>
+        {selectedItem && (
+          <ArtworkDetail
+            key="detail"
+            item={selectedItem}
+            allItems={items}
+            onClose={handleCloseDetail}
+            onSelectItem={setSelectedItem}
+            onTagClick={onTagClick}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
