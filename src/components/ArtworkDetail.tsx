@@ -220,7 +220,7 @@ export const ArtworkDetail = ({
 
   const copyrightText =
     item.copyrightStatus === 'public_domain'
-      ? 'Public Domain — Free to use'
+      ? 'Public Domain. Free to use.'
       : item.copyrightStatus === 'no_known_copyright'
         ? 'No known copyright restrictions'
         : 'Copyright status unknown';
@@ -324,7 +324,7 @@ export const ArtworkDetail = ({
               color: 'var(--text-4)',
             }}
           >
-            {Math.round(zoom * 100)}% — scroll to zoom, double-click to reset
+            {Math.round(zoom * 100)}% · scroll to zoom, double-click to reset
           </motion.div>
         )}
 
@@ -604,7 +604,7 @@ export const ArtworkDetail = ({
                           {(enrichment.artistInfo.born || enrichment.artistInfo.died) && (
                             <p className="text-xs mt-0.5 font-display" style={{ color: 'var(--text-2)' }}>
                               {enrichment.artistInfo.born && enrichment.artistInfo.died
-                                ? `${enrichment.artistInfo.born} – ${enrichment.artistInfo.died}`
+                                ? `Born ${enrichment.artistInfo.born}, died ${enrichment.artistInfo.died}`
                                 : enrichment.artistInfo.born
                                   ? `Born ${enrichment.artistInfo.born}`
                                   : `Died ${enrichment.artistInfo.died}`}

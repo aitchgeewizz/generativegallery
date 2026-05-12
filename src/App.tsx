@@ -135,7 +135,7 @@ function App() {
         if (cancelled) return;
 
         if (raw.length === 0) {
-          throw new Error('No items returned — try refreshing.');
+          throw new Error('No items returned. Try refreshing.');
         }
 
         const placed = layoutCentered(raw);

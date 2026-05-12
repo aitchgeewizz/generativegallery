@@ -7,9 +7,10 @@ interface AboutModalProps {
 }
 
 /**
- * About modal — trimmed version of the SPEC.md thesis. Keeps the
- * essential beats and credits, drops the longer expository sections.
- * Anyone wanting the long version can read SPEC.md in the repo.
+ * About modal — Hannah's voice. New copy in two parts: the project
+ * thesis and a personal "How this came together" reflection on
+ * building it. Em dashes are intentionally absent; we lean on full
+ * stops and commas per the brand voice.
  */
 export const AboutModal = ({ open, onClose }: AboutModalProps) => {
   useEffect(() => {
@@ -25,7 +26,7 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto backdrop-blur-sm py-12 md:py-20"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto backdrop-blur-sm py-12 md:py-16"
           style={{ background: 'rgba(0,0,0,0.75)' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -34,7 +35,7 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
           onClick={onClose}
         >
           <motion.article
-            className="relative w-full max-w-xl mx-4 p-8 md:p-12 rounded-lg font-display"
+            className="relative w-full max-w-2xl mx-4 p-8 md:p-12 rounded-lg font-display"
             style={{
               background: 'var(--bg)',
               color: 'var(--text-2)',
@@ -61,40 +62,41 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
               className="text-2xl md:text-3xl tracking-tight leading-tight uppercase"
               style={{ color: 'var(--text)' }}
             >
-              Slower: Stranger.
+              Slower. <span className="italic">Stranger.</span>
             </h2>
 
             <p
               className="mt-6 text-base md:text-lg leading-snug"
               style={{ color: 'var(--text-2)' }}
             >
-              Most design inspiration online is a firehose.
-              This is <span className="italic">the opposite</span>.
-              A few unexpected pieces of art and design we can appreciate and
-              be inspired by — not part of the algorithm but from those who came before us.
+              Most design inspiration online is a firehose. This collection aims to slow us down. Appreciate the work and hopefully see something unexpected.
             </p>
 
             <p
               className="mt-5 text-sm md:text-base leading-relaxed"
               style={{ color: 'var(--text-2)' }}
             >
-              A browser that pulls from public museum APIs — Cooper Hewitt, Harvard, the Art Institute of Chicago — and throws a handful of pieces at you. Unexpected. You don&rsquo;t know what you&rsquo;re going to get. That&rsquo;s the feature, not a bug.
+              This is a browser that pulls from public museum APIs (Cooper Hewitt, Harvard, the Art Institute of Chicago) and throws a handful of pieces at you. Take them in. Sit with them. Read more if something stops you, or just be in awe of the work.
             </p>
 
             <h3
               className="mt-10 text-[11px] uppercase tracking-[0.2em]"
               style={{ color: 'var(--text-3)' }}
             >
-              What this is not
+              How this came together
             </h3>
-            <ul
-              className="mt-3 text-sm leading-relaxed space-y-1.5"
+            <p
+              className="mt-3 text-sm md:text-base leading-relaxed"
               style={{ color: 'var(--text-2)' }}
             >
-              <li>Not a replacement for going to a real gallery.</li>
-              <li>Not a discovery engine for contemporary work.</li>
-              <li>Not infinite. The friction is on purpose.</li>
-            </ul>
+              I&rsquo;d been playing with a bunch of new tools and this one pushed me further. Into the terminal. Into corners of Claude Code I hadn&rsquo;t used before. I wanted to see if I could pull APIs into a project and end up with something that didn&rsquo;t look like the generic AI-coded layouts everywhere right now, or the catalogue-style archive sites the museums themselves run. Scratching my own itch and stretching what I can do, at the same time.
+            </p>
+            <p
+              className="mt-4 text-sm md:text-base leading-relaxed"
+              style={{ color: 'var(--text-2)' }}
+            >
+              The why is personal too. I&rsquo;d been overwhelmed and overloaded with the same content online. I miss the way I used to fill my cup. Going out into the world. Wandering through a gallery. Picking up a book. Touching real things. Looking at the work of craftspeople and artists from across history. That&rsquo;s how I get replenished. This is an attempt to bring some of that feeling back online, on the days I can&rsquo;t get out there.
+            </p>
 
             <p
               className="mt-10 text-xs tracking-wide leading-relaxed"
