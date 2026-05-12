@@ -62,13 +62,15 @@ export const TopNav = ({
 }: TopNavProps) => {
   return (
     <header className="fixed top-0 inset-x-0 z-40 pointer-events-none">
-      {/* Subtle scrim so the nav stays readable when bright artwork
-          sits right beneath it. Theme-aware via --scrim-top. */}
+      {/* Scrim so the nav stays readable when bright artwork sits
+          right beneath it. Theme-aware via --scrim-top. Bumped to
+          a longer fade so even bright photographs don't bleed
+          through enough to wash out the text. */}
       <div
-        className="absolute inset-x-0 top-0 h-24 pointer-events-none"
+        className="absolute inset-x-0 top-0 h-28 pointer-events-none"
         style={{
           background:
-            'linear-gradient(to bottom, var(--scrim-top) 0%, var(--scrim-top) 30%, transparent 100%)',
+            'linear-gradient(to bottom, var(--scrim-top) 0%, var(--scrim-top) 55%, transparent 100%)',
         }}
       />
       <div className="relative flex items-center justify-between gap-6 px-6 py-4 pointer-events-auto">

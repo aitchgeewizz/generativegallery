@@ -8,7 +8,7 @@ import { ArtworkDetail } from './ArtworkDetail';
 
 interface InfiniteCanvasProps {
   items: PortfolioItemType[];
-  onTagClick?: (tagLabel: string) => void;
+  onTagClick?: (tagLabel: string, category?: string) => void;
 }
 
 /**

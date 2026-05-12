@@ -173,8 +173,14 @@ function App() {
   // Clicking a tag in the detail view ("more by this maker", etc.) searches
   // across all sources in parallel regardless of current source mode —
   // a thread is a thread, follow it where it leads.
-  const handleTagClick = async (tagLabel: string) => {
-    console.log(`🏷️ Following the thread: ${tagLabel}`);
+  //
+  // The `category` parameter (when present) lets us tighten the results.
+  // For maker tags the museum APIs' broad `q=` search returns anything
+  // containing the words anywhere, so "Trent Bozeman" can match a place
+  // name or unrelated description. We post-filter to items where the
+  // maker is actually credited.
+  const handleTagClick = async (tagLabel: string, category?: string) => {
+    console.log(`🏷️ Following the thread: ${tagLabel} (category=${category || 'unspecified'})`);
 
     setActiveFilter({
       mode: 'tag-filter',
@@ -187,13 +193,35 @@ function App() {
     setLoading(true);
 
     try {
+      // Over-fetch when we're going to post-filter, so we still land
+      // on a reasonable count after weeding out non-matches.
+      const perSourceForSearch = category === 'maker' ? PER_SOURCE * 3 : PER_SOURCE;
       const results = await Promise.all(
         collections.map((c) =>
-          c.searchByTag(tagLabel, PER_SOURCE).catch(() => [] as PortfolioItem[]),
+          c.searchByTag(tagLabel, perSourceForSearch).catch(() => [] as PortfolioItem[]),
         ),
       );
 
-      const mixed = interleave(results).slice(0, HANDFUL);
+      let mixed = interleave(results);
+
+      // Maker-tag filter: keep only items where the maker name we
+      // searched is actually credited (in participants or description).
+      // Substring match, case-insensitive, so "Vincent van Gogh"
+      // matches "Van Gogh, Vincent" and similar variants.
+      if (category === 'maker') {
+        const needle = tagLabel.toLowerCase().trim();
+        mixed = mixed.filter((item) => {
+          const inParticipants = item.participants?.some((p) =>
+            (p.name || '').toLowerCase().includes(needle),
+          );
+          if (inParticipants) return true;
+          const inDescription = (item.description || '').toLowerCase().includes(needle);
+          return inDescription;
+        });
+        console.log(`🎯 Maker filter kept ${mixed.length} of the matched items`);
+      }
+
+      mixed = mixed.slice(0, HANDFUL);
       const placed = layoutCentered(mixed);
 
       setItems(placed);

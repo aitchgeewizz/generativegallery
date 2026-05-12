@@ -19,7 +19,7 @@ interface ArtworkDetailProps {
   allItems: PortfolioItem[];
   onClose: () => void;
   onSelectItem: (item: PortfolioItem) => void;
-  onTagClick?: (tagLabel: string) => void;
+  onTagClick?: (tagLabel: string, category?: string) => void;
 }
 
 /** Width of the right-side info panel (px). The image stage occupies
@@ -170,10 +170,14 @@ export const ArtworkDetail = ({
     });
   };
 
-  const handleSearchAllCollections = (tagLabel: string) => {
+  // Passing the tag's category lets App.tsx route the search correctly —
+  // most importantly, maker-tag results get post-filtered to items where
+  // the named maker is actually credited (the museum APIs' broad text
+  // search isn't strict enough for proper-noun lookups).
+  const handleSearchAllCollections = (tagLabel: string, category?: string) => {
     if (onTagClick) {
       onClose();
-      onTagClick(tagLabel);
+      onTagClick(tagLabel, category);
     }
   };
 
@@ -497,10 +501,12 @@ export const ArtworkDetail = ({
           <div className="flex-1 overflow-y-auto drawer-scroll px-8 py-12">
             {/* Wall label — always visible */}
             <header>
-              {/* Maker — clickable thread */}
+              {/* Maker — clickable thread. Routed as 'maker' so App.tsx
+                  filters results to items where this maker is actually
+                  credited. */}
               {artistName && (
                 <button
-                  onClick={() => handleSearchAllCollections(artistName)}
+                  onClick={() => handleSearchAllCollections(artistName, 'maker')}
                   className="text-xs font-display tracking-[0.18em] uppercase transition-colors block text-left underline-offset-4 hover:underline mb-3"
                   style={{ color: 'var(--text-2)' }}
                 >
@@ -552,7 +558,7 @@ export const ArtworkDetail = ({
                   {tags.map((tag, i) => (
                     <button
                       key={i}
-                      onClick={() => handleSearchAllCollections(tag.label)}
+                      onClick={() => handleSearchAllCollections(tag.label, tag.category)}
                       className="px-3 py-1.5 rounded-full text-xs font-display tracking-wide transition-colors"
                       style={{
                         color: 'var(--text-2)',
