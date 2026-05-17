@@ -9,9 +9,21 @@ interface UseInfiniteGridProps {
 }
 
 /**
- * Hook to create a truly infinite grid by repeating the base pattern
- * Only generates tiles that are visible in viewport + buffer
- * 3x3 tile pattern ensures seamless looping
+ * Below this count, looping is disabled. A tag search that returns
+ * one or two items shouldn't render 9 copies of the same image in a
+ * grid pattern — it just looks like a wallpaper bug.
+ */
+const MIN_ITEMS_TO_LOOP = 4;
+
+/**
+ * Hook to create a looping grid by repeating the base pattern.
+ * Renders a 3x3 tile pattern around the current drag offset to give
+ * a seamless wraparound illusion.
+ *
+ * Special case: when the result set is small (<= 3), we skip the loop
+ * entirely and just render the items once at their world positions.
+ * Otherwise a single tag-search hit would be tiled into nine
+ * identical copies, which reads as a bug.
  */
 export const useInfiniteGrid = ({
   baseItems,
@@ -20,6 +32,15 @@ export const useInfiniteGrid = ({
   gridHeight,
 }: UseInfiniteGridProps): PortfolioItem[] => {
   const infiniteItems = useMemo(() => {
+    // Small result sets: don't tile. The items are already centred by
+    // layoutCentered upstream and will sit where they are.
+    if (baseItems.length < MIN_ITEMS_TO_LOOP) {
+      return baseItems.map((item) => ({
+        ...item,
+        id: `${item.id}-solo`,
+      }));
+    }
+
     // Calculate which grid tile we're currently viewing
     const currentTileX = Math.floor(-offset.x / gridWidth);
     const currentTileY = Math.floor(-offset.y / gridHeight);

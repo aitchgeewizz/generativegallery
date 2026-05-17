@@ -52,10 +52,15 @@ export const ArtworkDetail = ({
   const [direction, setDirection] = useState(0);
   const [mainImageError, setMainImageError] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
-  // Hide the right panel for an image-only "full view". Toggled by an
-  // icon in the top-right of the image stage or by pressing F.
+  // Hide the right panel for an image-only "full view". On desktop:
+  // toggled by an icon or F key. On mobile: toggled by tapping the
+  // image so visitors can swipe through pieces uninterrupted.
   const [panelHidden, setPanelHidden] = useState(false);
   const currentThumbRef = useRef<HTMLButtonElement>(null);
+  // Mobile touch-swipe tracking for prev/next navigation.
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const touchMoved = useRef(false);
 
   // Layout breakpoint — below md (768px) we stack image-over-panel
   // instead of the desktop rail+image+panel three-column.
@@ -252,21 +257,60 @@ export const ArtworkDetail = ({
       style={{ background: 'var(--bg)' }}
     >
         {/* Image Stage. On desktop (>=md): between left rail (~60px)
-            and right panel (PANEL_W). On mobile: full width on top,
-            with the panel taking the bottom portion of the screen.
-            Clicking the empty background (not the image itself) closes
-            the detail view, so visitors don't have to find the X. */}
+            and right panel (PANEL_W). On mobile: full width on top
+            (or fullscreen when panelHidden), with the info panel
+            taking the bottom portion otherwise.
+
+            Mobile interactions:
+              - swipe left/right on the image stage → next/prev artwork
+              - tap the image itself → toggle fullscreen (hide panel)
+              - tap the background → close the detail view */}
         <div
-          className="absolute flex items-center justify-center transition-[right,bottom] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+          className="absolute flex items-center justify-center transition-[right,bottom,top] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
           style={
             isMobile
-              ? { top: 0, left: 0, right: 0, bottom: '55vh' }
+              ? panelHidden
+                ? { top: 0, left: 0, right: 0, bottom: 0 }
+                : { top: 0, left: 0, right: 0, bottom: '55vh' }
               : { top: 0, left: 56, bottom: 0, right: panelHidden ? 0 : PANEL_W }
           }
           onWheel={handleWheel}
           onDoubleClick={handleDoubleClick}
           onClick={(e) => {
             if (e.target === e.currentTarget) onClose();
+          }}
+          onTouchStart={(e) => {
+            if (!isMobile || e.touches.length !== 1) return;
+            touchStartX.current = e.touches[0].clientX;
+            touchStartY.current = e.touches[0].clientY;
+            touchMoved.current = false;
+          }}
+          onTouchMove={(e) => {
+            if (!isMobile || touchStartX.current === null) return;
+            const dx = Math.abs(e.touches[0].clientX - touchStartX.current);
+            const dy = Math.abs(e.touches[0].clientY - (touchStartY.current ?? 0));
+            // Any move past a small threshold counts as a drag, not a tap.
+            if (dx > 8 || dy > 8) touchMoved.current = true;
+          }}
+          onTouchEnd={(e) => {
+            if (!isMobile || touchStartX.current === null) return;
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const dx = endX - touchStartX.current;
+            const dy = endY - (touchStartY.current ?? 0);
+            touchStartX.current = null;
+            touchStartY.current = null;
+
+            // Horizontal swipe (mostly horizontal, not vertical, and
+            // beyond a reasonable threshold) navigates prev/next.
+            const SWIPE_THRESHOLD = 50;
+            if (
+              Math.abs(dx) > SWIPE_THRESHOLD &&
+              Math.abs(dx) > Math.abs(dy) * 1.5
+            ) {
+              navigate(dx < 0 ? 1 : -1);
+              touchMoved.current = true; // suppress the tap handler below
+            }
           }}
         >
           <AnimatePresence mode="wait">
@@ -279,6 +323,16 @@ export const ArtworkDetail = ({
                 transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
                 src={item.imageUrl}
                 alt={item.title}
+                onClick={(e) => {
+                  // Mobile: a clean tap on the image (not a swipe)
+                  // toggles fullscreen so visitors can swipe through
+                  // pieces uninterrupted. Desktop: do nothing here,
+                  // the expand button at top-right does the same job.
+                  if (isMobile && !touchMoved.current) {
+                    e.stopPropagation();
+                    setPanelHidden((h) => !h);
+                  }
+                }}
                 className="max-w-full max-h-full object-contain select-none p-3 md:p-0"
                 style={{
                   transform: `scale(${zoom}) translate(${panOffset.x}px, ${panOffset.y}px)`,
