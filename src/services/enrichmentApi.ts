@@ -265,14 +265,50 @@ export const fetchArtistInfo = async (artistName: string): Promise<ArtistInfo | 
       return null;
     }
 
-    // Validate Wikipedia result — check if the extract mentions the artist's name
-    // to avoid false positives (e.g. "Teisai Hokuba" returning Emperor Ninmyō)
+    // Validate Wikipedia result — must mention the artist's name
+    // strongly enough to be plausibly about them. The old check
+    // accepted any single name part (so "Charles Wright" would accept
+    // an article about any unrelated Charles). We now require ALL
+    // meaningful name parts to appear in the extract, AND the article
+    // must look like it's about a person (not a song, place, etc).
     let validatedSummary = wikiSummary;
     if (wikiSummary?.extract) {
       const extractLower = wikiSummary.extract.toLowerCase();
-      const nameParts = artistName.toLowerCase().split(/\s+/);
-      const nameFound = nameParts.some(part => part.length > 2 && extractLower.includes(part));
-      if (!nameFound) {
+      const meaningfulParts = artistName
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((part) => part.length >= 3);
+
+      // ALL parts present, not just any.
+      const fullNamePresent =
+        meaningfulParts.length > 0 &&
+        meaningfulParts.every((part) => extractLower.includes(part));
+
+      // Looks like an article about a person, not a song/place/object.
+      const looksLikePerson =
+        extractLower.includes('born') ||
+        extractLower.includes('artist') ||
+        extractLower.includes('painter') ||
+        extractLower.includes('designer') ||
+        extractLower.includes('sculptor') ||
+        extractLower.includes('photographer') ||
+        extractLower.includes('architect') ||
+        extractLower.includes('illustrator') ||
+        extractLower.includes('printmaker') ||
+        extractLower.includes('was a ') ||
+        extractLower.includes('is a ') ||
+        extractLower.includes('he was') ||
+        extractLower.includes('she was');
+
+      const isFalsePositive =
+        extractLower.includes('album') ||
+        extractLower.includes('single by') ||
+        extractLower.includes('song by') ||
+        extractLower.includes('tv series') ||
+        extractLower.includes('video game') ||
+        extractLower.includes('novel by');
+
+      if (!fullNamePresent || !looksLikePerson || isFalsePositive) {
         validatedSummary = null; // Discard unrelated Wikipedia result
       }
     }
@@ -299,8 +335,58 @@ export const fetchArtistInfo = async (artistName: string): Promise<ArtistInfo | 
 };
 
 /**
- * Fetch Wikipedia context about a specific artwork
- * Many famous artworks have their own Wikipedia articles
+ * Generic titles that should never trigger Wikipedia enrichment.
+ * Looking up "Poster" or "Untitled" returns whatever is currently the
+ * most prominent Wikipedia article with that title (e.g. the Obama
+ * Hope poster), which is virtually never the artwork the visitor is
+ * looking at. Better to show nothing than to mislead.
+ *
+ * Match is case-insensitive on the *normalised* title (strip any
+ * parenthetical, leading articles, etc).
+ */
+const GENERIC_TITLE_BLOCKLIST = new Set([
+  'untitled', 'unknown', 'no title', 'no.', 'number',
+  'poster', 'posters', 'print', 'prints', 'drawing', 'drawings',
+  'painting', 'paintings', 'sculpture', 'sculptures',
+  'photograph', 'photographs', 'photo', 'photos',
+  'vase', 'bowl', 'plate', 'cup', 'jar', 'chair',
+  'design', 'designs', 'cover', 'illustration', 'illustrations',
+  'sketch', 'sketches', 'fragment', 'fragments', 'study', 'studies',
+  'composition', 'figure', 'portrait', 'landscape', 'still life',
+  'plate i', 'plate ii', 'plate iii', 'plate 1', 'plate 2', 'plate 3',
+  'detail', 'group', 'pair', 'set',
+  // Cooper Hewitt's catalogue style uses "Type (Region and others)"
+  // patterns where the type alone is generic. We strip the
+  // parenthetical below before matching, so "Poster (USA and others)"
+  // → "poster" → blocked.
+]);
+
+/**
+ * Normalise a title for the generic-blocklist check. Strips
+ * parentheticals, articles, and surrounding whitespace.
+ */
+const normaliseTitle = (title: string): string =>
+  title
+    .replace(/\([^)]*\)/g, '')          // drop parentheticals
+    .replace(/^(the|a|an)\s+/i, '')      // drop leading article
+    .trim()
+    .toLowerCase();
+
+/**
+ * Fetch Wikipedia context about a specific artwork.
+ *
+ * Strict policy: only return a Wikipedia article when there's strong
+ * evidence it's about THIS specific work, not just a generic match on
+ * the title. The previous loose validation surfaced the Obama "Hope"
+ * poster article for any artwork titled "Poster", which was actively
+ * misleading. We now:
+ *
+ *   1. Reject generic titles (Poster / Vase / Untitled / …) outright,
+ *      since they can never match a specific Wikipedia article.
+ *   2. Require either the artist's name OR an exact title-token match
+ *      to appear in the Wikipedia extract before accepting the result.
+ *   3. Drop the over-generous "isAboutArt" heuristic — having the
+ *      word "designed" or "poster" in the extract proved nothing.
  */
 export const fetchArtworkContext = async (
   title: string,
@@ -309,15 +395,25 @@ export const fetchArtworkContext = async (
   const cacheKey = `${title}__${artistName || ''}`.toLowerCase();
   if (artworkCache.has(cacheKey)) return artworkCache.get(cacheKey) || null;
 
+  // (1) Bail early on generic titles. There's no Wikipedia article for
+  // "Poster (USA and others)" or "Vase" specifically; the search would
+  // just return the most popular page sharing the noun.
+  const normalised = normaliseTitle(title);
+  if (GENERIC_TITLE_BLOCKLIST.has(normalised) || normalised.length < 4) {
+    artworkCache.set(cacheKey, null);
+    return null;
+  }
+
   try {
-    // Try artwork-specific formats first (more precise)
+    // Try artwork-specific formats first (more precise direct lookups).
     let summary = await fetchWikipediaSummary(`${title} (painting)`);
 
     if (!summary?.extract && artistName) {
       summary = await fetchWikipediaSummary(`${title} (${artistName})`);
     }
 
-    // Fall back to direct title
+    // Fall back to direct title — but only if title has enough
+    // specificity to plausibly identify a real work.
     if (!summary?.extract) {
       summary = await fetchWikipediaSummary(title);
     }
@@ -327,30 +423,49 @@ export const fetchArtworkContext = async (
       return null;
     }
 
-    // Verify this is actually about visual art, not music/film/etc.
     const extract = summary.extract.toLowerCase();
 
-    // Reject common false positives
-    const isFalsePositive = extract.includes('album') || extract.includes('single by') ||
-                            extract.includes('song by') || extract.includes('television') ||
-                            extract.includes('tv series') || extract.includes('video game') ||
-                            extract.includes('novel by') || extract.includes('film directed');
+    // (2) Reject common cross-domain false positives — songs, albums,
+    // films, TV shows, novels, video games can share titles with art.
+    const isFalsePositive =
+      extract.includes('album') ||
+      extract.includes('single by') ||
+      extract.includes('song by') ||
+      extract.includes('television') ||
+      extract.includes('tv series') ||
+      extract.includes('video game') ||
+      extract.includes('novel by') ||
+      extract.includes('film directed');
     if (isFalsePositive) {
       artworkCache.set(cacheKey, null);
       return null;
     }
 
-    // Must contain visual art indicators
-    const isAboutArt = extract.includes('painting') || extract.includes('artwork') ||
-                       extract.includes('sculpture') || extract.includes('museum') ||
-                       extract.includes('gallery') || extract.includes('canvas') ||
-                       extract.includes('oil on') || extract.includes('pastel') ||
-                       extract.includes('designed') || extract.includes('poster') ||
-                       extract.includes('engraving') || extract.includes('fresco') ||
-                       extract.includes('watercolor') || extract.includes('lithograph') ||
-                       (artistName && extract.includes(artistName.toLowerCase().split(' ')[0]));
+    // (3) The ONLY reliable signal that a Wikipedia article is about
+    // *this artwork* (and not about the artwork's subject — the song
+    // "O Tannenbaum", the city "Aspen", the person depicted) is that
+    // the article credits the artist. So we require it.
+    //
+    // If we don't have an artist name, we can't validate, so we
+    // refuse rather than guess.
+    if (!artistName) {
+      artworkCache.set(cacheKey, null);
+      return null;
+    }
 
-    if (!isAboutArt) {
+    const artistTokens = artistName
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((t) => t.length >= 3);
+
+    const artistMentioned =
+      artistTokens.length > 0 &&
+      // Require ALL the artist's name tokens to appear, not just one
+      // (a common surname would false-match too many articles).
+      artistTokens.every((t) => extract.includes(t));
+
+    if (!artistMentioned) {
+      // Wikipedia article isn't demonstrably about this artist's work.
       artworkCache.set(cacheKey, null);
       return null;
     }
@@ -402,12 +517,31 @@ export const fetchRelatedWorks = async (
 };
 
 /**
- * Search Art Institute for other works by the same artist
+ * Cheap fuzzy match — does `haystack` mention this artist? Substring,
+ * case-insensitive, and requires ALL meaningful name tokens (>=3 char)
+ * to appear so common surnames don't false-match.
+ */
+const mentionsArtist = (haystack: string | undefined, artistName: string): boolean => {
+  if (!haystack) return false;
+  const lower = haystack.toLowerCase();
+  const tokens = artistName
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t.length >= 3);
+  return tokens.length > 0 && tokens.every((t) => lower.includes(t));
+};
+
+/**
+ * Search Art Institute for other works by the same artist.
+ * The Art Institute's `q=` is full-text — it'll return anything
+ * mentioning the artist's name anywhere (titles, descriptions,
+ * subjects, themes), so we over-fetch and post-filter to artworks
+ * whose own `artist_display` actually credits the artist.
  */
 const fetchRelatedFromArtInstitute = async (artistName: string): Promise<RelatedWork[]> => {
   try {
     const response = await fetch(
-      `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(artistName)}&limit=12&fields=id,title,artist_display,date_display,image_id,is_public_domain`,
+      `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(artistName)}&limit=40&fields=id,title,artist_display,date_display,image_id,is_public_domain`,
       { signal: AbortSignal.timeout(8000) }
     );
     if (!response.ok) return [];
@@ -416,7 +550,13 @@ const fetchRelatedFromArtInstitute = async (artistName: string): Promise<Related
     const artworks = data.data || [];
 
     return artworks
-      .filter((a: any) => a.image_id && a.is_public_domain && a.title)
+      .filter((a: any) =>
+        a.image_id &&
+        a.is_public_domain &&
+        a.title &&
+        // Only keep works actually credited to this artist.
+        mentionsArtist(a.artist_display, artistName),
+      )
       .slice(0, 8)
       .map((a: any) => ({
         title: a.title,
@@ -431,7 +571,8 @@ const fetchRelatedFromArtInstitute = async (artistName: string): Promise<Related
 };
 
 /**
- * Search Harvard for other works by the same artist
+ * Search Harvard for other works by the same artist. Same broad-search
+ * issue — filter to items whose `people` list actually includes them.
  */
 const fetchRelatedFromHarvard = async (artistName: string): Promise<RelatedWork[]> => {
   const apiKey = import.meta.env.VITE_HARVARD_KEY;
@@ -439,7 +580,7 @@ const fetchRelatedFromHarvard = async (artistName: string): Promise<RelatedWork[
 
   try {
     const response = await fetch(
-      `https://api.harvardartmuseums.org/object?apikey=${apiKey}&q=${encodeURIComponent(artistName)}&size=12&hasimage=1`,
+      `https://api.harvardartmuseums.org/object?apikey=${apiKey}&q=${encodeURIComponent(artistName)}&size=40&hasimage=1`,
       { signal: AbortSignal.timeout(8000) }
     );
     if (!response.ok) return [];
@@ -448,7 +589,12 @@ const fetchRelatedFromHarvard = async (artistName: string): Promise<RelatedWork[
     const records = data.records || [];
 
     return records
-      .filter((r: any) => r.primaryimageurl && r.title)
+      .filter((r: any) => {
+        if (!r.primaryimageurl || !r.title) return false;
+        // Require at least one credited person to actually be the named artist.
+        const people: Array<{ name?: string }> = r.people || [];
+        return people.some((p) => mentionsArtist(p.name, artistName));
+      })
       .slice(0, 8)
       .map((r: any) => ({
         title: r.title,
