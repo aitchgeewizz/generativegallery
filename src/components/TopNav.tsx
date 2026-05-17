@@ -67,28 +67,73 @@ export const TopNav = ({
           a longer fade so even bright photographs don't bleed
           through enough to wash out the text. */}
       <div
-        className="absolute inset-x-0 top-0 h-28 pointer-events-none"
+        className="absolute inset-x-0 top-0 h-36 md:h-28 pointer-events-none"
         style={{
           background:
             'linear-gradient(to bottom, var(--scrim-top) 0%, var(--scrim-top) 55%, transparent 100%)',
         }}
       />
-      <div className="relative flex items-center justify-between gap-6 px-6 py-4 pointer-events-auto">
-        {/* Wordmark */}
-        <button
-          onClick={onAboutOpen}
-          className="font-display text-sm tracking-wide transition-colors"
-          style={{ color: 'var(--text)' }}
-          title="About Slower. Stranger."
-        >
-          <span>Slower.</span>{' '}
-          <span className="italic">Stranger.</span>
-        </button>
+      {/* Two-row layout on mobile (wordmark + icons up top, chips
+          horizontally scrollable below); single-row on md+. */}
+      <div className="relative flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-6 px-4 md:px-6 py-3 md:py-4 pointer-events-auto">
+        {/* Row 1 on mobile: wordmark + right cluster */}
+        <div className="flex items-center justify-between md:contents">
+          {/* Wordmark — never wraps, opens About */}
+          <button
+            onClick={onAboutOpen}
+            className="font-display text-sm tracking-wide transition-colors whitespace-nowrap shrink-0"
+            style={{ color: 'var(--text)' }}
+            title="About Slower. Stranger."
+          >
+            <span>Slower.</span>{' '}
+            <span className="italic">Stranger.</span>
+          </button>
+
+          {/* Right cluster — About link hides on mobile (the wordmark
+              also opens About, so this is just a duplicate save for desktop) */}
+          <div className="flex items-center gap-2 shrink-0 md:order-last">
+            <button
+              onClick={onAboutOpen}
+              className="hidden md:inline-flex font-display tracking-wide text-xs transition-colors px-2"
+              style={{ color: 'var(--text-3)' }}
+            >
+              About
+            </button>
+            <motion.button
+              onClick={onThemeToggle}
+              className="w-9 h-9 flex items-center justify-center rounded-full transition-colors"
+              style={{ background: 'var(--surface)', color: 'var(--text-3)' }}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+            </motion.button>
+            <motion.button
+              onClick={onRefresh}
+              className="w-9 h-9 flex items-center justify-center rounded-full transition-colors"
+              style={{ background: 'var(--surface)', color: 'var(--text-3)' }}
+              title="A new handful"
+              aria-label="Refresh for a new handful"
+              whileHover={{ rotate: 90 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+            >
+              <RefreshIcon />
+            </motion.button>
+          </div>
+        </div>
 
         {/* Source filter — Displaay-style pills.
             Active: solid filled (foreground colour as background, background colour as text)
-            Inactive: outlined, low-contrast text — promotes the active one. */}
-        <nav aria-label="Filter by source" className="flex items-center gap-1.5">
+            Inactive: outlined, low-contrast text — promotes the active one.
+            On mobile, this row becomes horizontally scrollable so all
+            four pills are reachable on a narrow phone. */}
+        <nav
+          aria-label="Filter by source"
+          className="flex items-center gap-1.5 overflow-x-auto md:overflow-visible -mx-4 px-4 md:mx-0 md:px-0 md:justify-center md:flex-1"
+          style={{ scrollbarWidth: 'none' }}
+        >
           {SOURCE_OPTIONS.map((opt) => {
             const active = opt.id === sourceMode;
             return (
@@ -96,7 +141,7 @@ export const TopNav = ({
                 key={opt.id}
                 onClick={() => onSourceChange(opt.id)}
                 aria-pressed={active}
-                className="px-4 py-1.5 rounded-full text-xs font-display tracking-wide transition-colors"
+                className="px-3.5 md:px-4 py-1.5 rounded-full text-xs font-display tracking-wide transition-colors whitespace-nowrap shrink-0"
                 style={
                   active
                     ? {
@@ -114,39 +159,6 @@ export const TopNav = ({
             );
           })}
         </nav>
-
-        {/* Right cluster — About + theme toggle + Refresh */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onAboutOpen}
-            className="font-display tracking-wide text-xs transition-colors px-2"
-            style={{ color: 'var(--text-3)' }}
-          >
-            About
-          </button>
-          <motion.button
-            onClick={onThemeToggle}
-            className="w-9 h-9 flex items-center justify-center rounded-full transition-colors"
-            style={{ background: 'var(--surface)', color: 'var(--text-3)' }}
-            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-          </motion.button>
-          <motion.button
-            onClick={onRefresh}
-            className="w-9 h-9 flex items-center justify-center rounded-full transition-colors"
-            style={{ background: 'var(--surface)', color: 'var(--text-3)' }}
-            title="A new handful"
-            aria-label="Refresh for a new handful"
-            whileHover={{ rotate: 90 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-          >
-            <RefreshIcon />
-          </motion.button>
-        </div>
       </div>
     </header>
   );

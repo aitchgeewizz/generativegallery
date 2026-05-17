@@ -57,6 +57,19 @@ export const ArtworkDetail = ({
   const [panelHidden, setPanelHidden] = useState(false);
   const currentThumbRef = useRef<HTMLButtonElement>(null);
 
+  // Layout breakpoint — below md (768px) we stack image-over-panel
+  // instead of the desktop rail+image+panel three-column.
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window === 'undefined' ? false : window.matchMedia('(max-width: 767px)').matches,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const onChange = () => setIsMobile(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
   // Derived
   const tags = item ? extractTags(item) : [];
   const artistName = item ? extractArtistName(item) : null;
@@ -238,15 +251,18 @@ export const ArtworkDetail = ({
       className="fixed inset-0 z-50 gallery-grain"
       style={{ background: 'var(--bg)' }}
     >
-        {/* Image Stage — between left rail (~60px) and right panel
-            (PANEL_W). When panelHidden is true, the stage expands to
-            the right edge. Animates via transition on `right`.
-            Clicking the empty background (not the image itself) closes the
-            detail view, so visitors don't have to find the X. The image
-            also stops propagation so clicks on it don't close. */}
+        {/* Image Stage. On desktop (>=md): between left rail (~60px)
+            and right panel (PANEL_W). On mobile: full width on top,
+            with the panel taking the bottom portion of the screen.
+            Clicking the empty background (not the image itself) closes
+            the detail view, so visitors don't have to find the X. */}
         <div
-          className="absolute top-0 bottom-0 left-14 md:left-16 flex items-center justify-center transition-[right] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
-          style={{ right: panelHidden ? 0 : PANEL_W }}
+          className="absolute flex items-center justify-center transition-[right,bottom] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+          style={
+            isMobile
+              ? { top: 0, left: 0, right: 0, bottom: '55vh' }
+              : { top: 0, left: 56, bottom: 0, right: panelHidden ? 0 : PANEL_W }
+          }
           onWheel={handleWheel}
           onDoubleClick={handleDoubleClick}
           onClick={(e) => {
@@ -263,7 +279,7 @@ export const ArtworkDetail = ({
                 transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
                 src={item.imageUrl}
                 alt={item.title}
-                className="max-w-full max-h-[88vh] object-contain select-none"
+                className="max-w-full max-h-full object-contain select-none p-3 md:p-0"
                 style={{
                   transform: `scale(${zoom}) translate(${panOffset.x}px, ${panOffset.y}px)`,
                   transformOrigin: 'center center',
@@ -312,14 +328,16 @@ export const ArtworkDetail = ({
           </AnimatePresence>
         </div>
 
-        {/* Zoom indicator — top of image area, only when zoomed */}
+        {/* Zoom indicator — top of image area, only when zoomed.
+            Centered above the IMAGE STAGE (which on desktop is offset
+            by the panel; on mobile it's the full width). */}
         {zoom > 1 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="absolute top-6 text-xs font-display tracking-wide z-20 pointer-events-none"
             style={{
-              left: panelHidden ? '50%' : `calc(50% - ${PANEL_W / 2}px)`,
+              left: isMobile || panelHidden ? '50%' : `calc(50% - ${PANEL_W / 2}px)`,
               transform: 'translateX(-50%)',
               color: 'var(--text-4)',
             }}
@@ -328,15 +346,13 @@ export const ArtworkDetail = ({
           </motion.div>
         )}
 
-        {/* Expand-image toggle. Sits at the right edge of the image
-            stage (just left of the panel when visible, or far-right
-            when the panel is hidden). The panel has its own close X;
-            this is for view mode only, never duplicates close. */}
+        {/* Expand-image toggle (desktop only — on mobile the panel
+            is already below the image, so toggling adds no value). */}
         <motion.button
           onClick={() => setPanelHidden((h) => !h)}
           aria-label={panelHidden ? 'Show details panel' : 'View image only'}
           title={panelHidden ? 'Show details (F)' : 'View image only (F)'}
-          className="absolute top-5 z-[45] w-9 h-9 flex items-center justify-center rounded-full transition-colors"
+          className="hidden md:flex absolute top-5 z-[45] w-9 h-9 items-center justify-center rounded-full transition-colors"
           style={{ background: 'var(--surface)', color: 'var(--text-2)' }}
           animate={{ right: panelHidden ? 20 : PANEL_W + 16 }}
           transition={{ duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }}
@@ -372,12 +388,12 @@ export const ArtworkDetail = ({
           </motion.div>
         )}
 
-        {/* ── Left thumbnail rail ─────────────────────────────────── */}
+        {/* ── Left thumbnail rail (desktop only) ─────────────────── */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.15 }}
-          className="absolute left-0 top-0 bottom-0 w-14 md:w-16 z-40 flex flex-col items-center pt-4 pb-4"
+          className="hidden md:flex absolute left-0 top-0 bottom-0 w-14 md:w-16 z-40 flex-col items-center pt-4 pb-4"
           style={{
             background:
               'linear-gradient(to right, var(--bg) 0%, var(--bg) 50%, transparent 100%)',
@@ -472,18 +488,39 @@ export const ArtworkDetail = ({
           </span>
         </motion.div>
 
-        {/* ── Right-side info panel — slides out when panelHidden ── */}
+        {/* ── Info panel ──
+            Desktop: right-side panel (420px), slides out on F.
+            Mobile: bottom drawer (55vh), always visible (no toggle). */}
         <motion.aside
-          initial={{ opacity: 0, x: 24 }}
-          animate={{ opacity: panelHidden ? 0 : 1, x: panelHidden ? PANEL_W : 0 }}
+          initial={isMobile ? { opacity: 0, y: 24 } : { opacity: 0, x: 24 }}
+          animate={
+            isMobile
+              ? { opacity: 1, y: 0 }
+              : { opacity: panelHidden ? 0 : 1, x: panelHidden ? PANEL_W : 0 }
+          }
           transition={{ duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }}
-          className="absolute right-0 top-0 bottom-0 z-30 flex flex-col backdrop-blur-md"
-          style={{
-            width: PANEL_W,
-            background: 'var(--bg)',
-            borderLeft: '1px solid var(--border)',
-            pointerEvents: panelHidden ? 'none' : 'auto',
-          }}
+          className="absolute z-30 flex flex-col backdrop-blur-md"
+          style={
+            isMobile
+              ? {
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  top: '45vh',
+                  background: 'var(--bg)',
+                  borderTop: '1px solid var(--border)',
+                  pointerEvents: 'auto',
+                }
+              : {
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: PANEL_W,
+                  background: 'var(--bg)',
+                  borderLeft: '1px solid var(--border)',
+                  pointerEvents: panelHidden ? 'none' : 'auto',
+                }
+          }
         >
           {/* Explicit close X — top-right corner of the panel. */}
           <button
