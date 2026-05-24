@@ -262,10 +262,11 @@ export const ArtworkDetail = ({
             panel taking the bottom portion (or fullscreen when
             panelHidden).
 
-            Panel-open mode gets a little inner padding (p-5 on desktop,
-            p-3 on mobile) so the artwork has breathing room and doesn't
-            look like it's running off the viewport edge. Fullscreen
-            drops that padding for a truly edge-to-edge view.
+            Inner padding (p-5 on desktop, p-3 on mobile) is kept in
+            both panel-open AND fullscreen modes so the artwork always
+            has breathing room and never runs off the viewport edge.
+            Fullscreen adds extra bottom padding so the prev/counter/next
+            indicator has clean space to sit below the artwork.
 
             Interactions:
               - click/tap the image → toggle fullscreen (any size screen).
@@ -277,7 +278,7 @@ export const ArtworkDetail = ({
               - swipe left/right (mobile only) → next/prev artwork
               - scroll wheel → zoom; double-click → toggle zoom */}
         <div
-          className={`absolute flex items-center justify-center transition-[left,right,bottom,top] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${panelHidden ? '' : 'p-3 md:p-5'}`}
+          className={`absolute flex items-center justify-center transition-[left,right,bottom,top] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] p-3 md:p-5 ${panelHidden ? 'pb-16 md:pb-16' : ''}`}
           style={
             isMobile
               ? panelHidden
@@ -454,7 +455,7 @@ export const ArtworkDetail = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
             transition={{ duration: 0.3 }}
-            className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center gap-5"
+            className="absolute bottom-8 inset-x-0 z-30 flex items-center justify-center gap-5"
             style={{ color: 'var(--text-3)' }}
           >
             <button
