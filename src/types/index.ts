@@ -20,6 +20,12 @@ export interface PortfolioItem {
   title: string;
   description?: string;
   imageUrl?: string;
+  /**
+   * Small variant (~400px) used by the wall tile. Falls back to
+   * `imageUrl` when missing. Detail view always uses `imageUrl` for
+   * the high-resolution view.
+   */
+  thumbnailUrl?: string;
   fallbackUrl?: string;
   pixelated?: boolean;
   collectionSource?: string;

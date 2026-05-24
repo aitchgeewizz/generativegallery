@@ -86,7 +86,8 @@ const BASE_URL = 'https://api.collection.cooperhewitt.org/rest/';
 const API_KEY = import.meta.env.VITE_COOPER_HEWITT_API_KEY || '';
 
 /**
- * Get image URL from Cooper Hewitt object
+ * Get image URL from Cooper Hewitt object — largest available variant.
+ * Used by the detail view for the high-resolution stage.
  */
 export const getDesignImageUrl = (imageData: DesignObjectData): string | null => {
   if (!imageData.images || imageData.images.length === 0) return null;
@@ -94,6 +95,20 @@ export const getDesignImageUrl = (imageData: DesignObjectData): string | null =>
   const image = imageData.images[0];
   // Try all available sizes from largest to smallest
   return image.b?.url || image.z?.url || image.n?.url || image.d?.url || image.sq?.url || null;
+};
+
+/**
+ * Get a small image URL for wall tiles — prefers `n` (~320px) before
+ * falling back to larger variants. Saves a meaningful chunk of network
+ * vs. loading the `b` variant for every 200×200 tile.
+ */
+export const getDesignThumbnailUrl = (imageData: DesignObjectData): string | null => {
+  if (!imageData.images || imageData.images.length === 0) return null;
+
+  const image = imageData.images[0];
+  // Prefer small → medium → large. Skip the square `sq` thumb (often
+  // crops awkwardly); only fall through to it if nothing else exists.
+  return image.n?.url || image.z?.url || image.d?.url || image.b?.url || image.sq?.url || null;
 };
 
 /**

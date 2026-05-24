@@ -17,26 +17,28 @@ const imageErrorCache = new Map<string, boolean>();
 
 export const PortfolioItem = ({ item, onClick }: PortfolioItemProps) => {
   const [isHovered, setIsHovered] = useState(false);
-  const imageUrl = item.imageUrl;
+  // Prefer the small thumbnail variant for the 200×200 wall tile.
+  // The detail view still pulls `imageUrl` (full size) for the stage.
+  const tileUrl = item.thumbnailUrl || item.imageUrl;
 
   // Check cache first for instant rendering of duplicates
-  const [imageLoaded, setImageLoaded] = useState(() => imageUrl ? imageLoadedCache.get(imageUrl) || false : false);
-  const [imageError, setImageError] = useState(() => imageUrl ? imageErrorCache.get(imageUrl) || false : false);
-  const [currentImageUrl, setCurrentImageUrl] = useState(item.imageUrl);
+  const [imageLoaded, setImageLoaded] = useState(() => tileUrl ? imageLoadedCache.get(tileUrl) || false : false);
+  const [imageError, setImageError] = useState(() => tileUrl ? imageErrorCache.get(tileUrl) || false : false);
+  const [currentImageUrl, setCurrentImageUrl] = useState(tileUrl);
 
   // Update image URL when item changes (important for looped grid)
   useEffect(() => {
-    if (item.imageUrl) {
-      setCurrentImageUrl(item.imageUrl);
+    if (tileUrl) {
+      setCurrentImageUrl(tileUrl);
       // Use cached state if available
-      setImageLoaded(imageLoadedCache.get(item.imageUrl) || false);
-      setImageError(imageErrorCache.get(item.imageUrl) || false);
+      setImageLoaded(imageLoadedCache.get(tileUrl) || false);
+      setImageError(imageErrorCache.get(tileUrl) || false);
     }
-  }, [item.imageUrl, item.id]);
+  }, [tileUrl, item.id]);
 
   const renderContent = () => {
     // If item has an image/gif URL, try to render it
-    if (item.imageUrl) {
+    if (tileUrl) {
       return (
         <div
           className="relative w-full h-full rounded-sm overflow-hidden"
@@ -79,7 +81,7 @@ export const PortfolioItem = ({ item, onClick }: PortfolioItemProps) => {
                   }
                 }
               }}
-              loading="eager"
+              loading="lazy"
               draggable={false}
             />
           )}

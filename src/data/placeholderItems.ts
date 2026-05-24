@@ -110,6 +110,7 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
     // Convert API artworks to items
     const items = withImages.map((artwork, i) => {
       const imageUrl = getImageUrl(artwork.image_id, 843);
+      const thumbnailUrl = getImageUrl(artwork.image_id, 400);
 
       return {
         id: i,
@@ -120,6 +121,7 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
         title: artwork.title,
         description: artwork.artist_display,
         imageUrl: imageUrl,
+        thumbnailUrl: thumbnailUrl,
         collectionSource: 'Art Institute of Chicago',
         url: `https://www.artic.edu/artworks/${artwork.id}`,
         // Rich artwork metadata
@@ -177,6 +179,7 @@ export const searchArtworkItemsByTag = async (tag: string, count: number = 32): 
       title: artwork.title,
       description: artwork.artist_display,
       imageUrl: getImageUrl(artwork.image_id, 843),
+      thumbnailUrl: getImageUrl(artwork.image_id, 400),
       collectionSource: 'Art Institute of Chicago',
       shortDescription: artwork.short_description || artwork.description,
       medium: artwork.medium_display,

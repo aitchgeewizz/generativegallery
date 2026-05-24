@@ -618,13 +618,18 @@ export const ArtworkDetail = ({
         </motion.div>
 
         {/* ── Info panel ──
-            Desktop: right-side panel (420px), slides out on F.
-            Mobile: bottom drawer (55vh), always visible (no toggle). */}
+            Desktop: right-side panel (420px), slides out to the right
+            in fullscreen.
+            Mobile: bottom drawer (55vh), slides off the bottom in
+            fullscreen so a tap on the image gives an unobstructed view. */}
         <motion.aside
           initial={isMobile ? { opacity: 0, y: 24 } : { opacity: 0, x: 24 }}
           animate={
             isMobile
-              ? { opacity: 1, y: 0 }
+              ? {
+                  opacity: panelHidden ? 0 : 1,
+                  y: panelHidden ? '100%' : 0,
+                }
               : { opacity: panelHidden ? 0 : 1, x: panelHidden ? PANEL_W : 0 }
           }
           transition={{ duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }}
@@ -638,7 +643,7 @@ export const ArtworkDetail = ({
                   top: '45vh',
                   background: 'var(--bg)',
                   borderTop: '1px solid var(--border)',
-                  pointerEvents: 'auto',
+                  pointerEvents: panelHidden ? 'none' : 'auto',
                 }
               : {
                   right: 0,

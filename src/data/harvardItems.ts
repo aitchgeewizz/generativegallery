@@ -50,6 +50,7 @@ const convertHarvardToPortfolioItem = (
   positions: Array<{ x: number; y: number }>
 ): PortfolioItem => {
   const imageUrl = getHarvardImageUrl(artwork, 843);
+  const thumbnailUrl = getHarvardImageUrl(artwork, 400);
 
   return {
     id: index,
@@ -60,6 +61,7 @@ const convertHarvardToPortfolioItem = (
     title: artwork.title,
     description: formatHarvardArtwork(artwork),
     imageUrl: imageUrl || undefined,
+    thumbnailUrl: thumbnailUrl || undefined,
     collectionSource: 'Harvard Photography',
     url: artwork.url,
 

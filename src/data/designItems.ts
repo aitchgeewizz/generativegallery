@@ -1,5 +1,5 @@
 import { PortfolioItem, ShapeType } from '../types';
-import { fetchRandomDesignObjects, getDesignImageUrl, searchDesignObjectsByTag } from '../services/cooperHewittApi';
+import { fetchRandomDesignObjects, getDesignImageUrl, getDesignThumbnailUrl, searchDesignObjectsByTag } from '../services/cooperHewittApi';
 
 const shapes: ShapeType[] = ['box', 'sphere', 'torus', 'cone', 'cylinder', 'octahedron'];
 
@@ -80,6 +80,7 @@ export const generateDesignItems = async (count: number = 32): Promise<Portfolio
     // Convert API design objects to items
     items = withImages.slice(0, count).map((design, i) => {
       const imageUrl = getDesignImageUrl(design);
+      const thumbnailUrl = getDesignThumbnailUrl(design);
 
       // Get primary designer/creator with role display name
       const primaryCreator = design.participants?.find(p =>
@@ -98,6 +99,7 @@ export const generateDesignItems = async (count: number = 32): Promise<Portfolio
         title: design.title || 'Untitled',
         description: `${creator}${design.date ? ` (${design.date})` : ''}`,
         imageUrl: imageUrl || undefined,
+        thumbnailUrl: thumbnailUrl || undefined,
         collectionSource: 'Cooper Hewitt Smithsonian Design Museum',
 
         // Rich metadata from Cooper Hewitt
@@ -175,6 +177,7 @@ export const searchDesignItemsByTag = async (tag: string, count: number = 32): P
     // Convert to PortfolioItems
     items = withImages.map((design, i) => {
       const imageUrl = getDesignImageUrl(design);
+      const thumbnailUrl = getDesignThumbnailUrl(design);
       const primaryCreator = design.participants?.find(p =>
         p.role_name?.toLowerCase().includes('designer') ||
         p.role_name?.toLowerCase().includes('artist')
@@ -191,6 +194,7 @@ export const searchDesignItemsByTag = async (tag: string, count: number = 32): P
         title: design.title || 'Untitled',
         description: `${creator}${design.date ? ` (${design.date})` : ''}`,
         imageUrl: imageUrl || undefined,
+        thumbnailUrl: thumbnailUrl || undefined,
         collectionSource: 'Cooper Hewitt Smithsonian Design Museum',
         medium: design.medium,
         dimensions: design.dimensions,
