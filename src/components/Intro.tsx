@@ -34,7 +34,7 @@ export const Intro = () => {
           className="font-display leading-[1.05] text-4xl md:text-6xl lg:text-7xl tracking-tight"
           style={{ color: 'var(--text)' }}
         >
-          <span className="uppercase">SLOWER:STRANGER</span>{' '}
+          <span className="block uppercase">SLOWER STRANGER</span>
           A few unexpected pieces of art and design we can appreciate and be inspired by.
         </motion.h1>
 

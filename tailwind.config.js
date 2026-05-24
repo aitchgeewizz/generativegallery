@@ -11,7 +11,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        display: ['"SeasonMix"', 'serif'],
+        display: ['"Crimson Pro"', 'serif'],
         body: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
       },
     },

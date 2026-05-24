@@ -78,15 +78,15 @@ export const TopNav = ({
       <div className="relative flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-6 px-4 md:px-6 py-3 md:py-4 pointer-events-auto">
         {/* Row 1 on mobile: wordmark + right cluster */}
         <div className="flex items-center justify-between md:contents">
-          {/* Wordmark — always SLOWER:STRANGER, uppercase, one style.
-              No italic, no period. Opens About on click. */}
+          {/* Wordmark — always SLOWER STRANGER, uppercase, one style.
+              No italic, no period, no colon. Opens About on click. */}
           <button
             onClick={onAboutOpen}
             className="font-display text-sm tracking-[0.1em] uppercase transition-colors whitespace-nowrap shrink-0"
             style={{ color: 'var(--text)' }}
-            title="About Slower:Stranger"
+            title="About Slower Stranger"
           >
-            SLOWER:STRANGER
+            SLOWER STRANGER
           </button>
 
           {/* Right cluster — About link hides on mobile (the wordmark

@@ -2,16 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* SeasonMix — one weight only (Regular). One file, one style. Smaller
-   download, tighter licence to buy when the trial ends, and a tighter
-   visual system overall. */
-@font-face {
-  font-family: 'SeasonMix';
-  src: url('/font/SeasonMix-TRIAL-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
+/* Crimson Pro is loaded via Google Fonts CDN in index.html
+   (weights 200, 300, 400). No local @font-face needed. */
 
 * {
   margin: 0;
@@ -58,14 +50,32 @@
 }
 
 body {
-  font-family: 'SeasonMix', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Crimson Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', serif;
+  font-weight: 300;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--bg);
   color: var(--text);
   overflow: hidden;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Weight hierarchy tuned for Crimson Pro:
+   - Large display (hero h1, artwork title): ExtraLight (200) — the
+     editorial moment. Thin and elegant at large sizes.
+   - Body, wordmark, and most UI: Light (300) — default from body.
+   - Eyebrows at text-[11px] / text-[10px]: Regular (400) so they
+     read clearly at low contrast in both light and dark themes. */
+.font-display.text-3xl,
+.font-display.text-4xl,
+.font-display.md\:text-3xl,
+.font-display.md\:text-6xl,
+.font-display.lg\:text-7xl {
+  font-weight: 200;
+}
+.font-display.text-\[11px\],
+.font-display.text-\[10px\] {
+  font-weight: 400;
 }
 
 #root {
