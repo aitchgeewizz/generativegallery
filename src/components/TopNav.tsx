@@ -82,7 +82,7 @@ export const TopNav = ({
               No italic, no period, no colon. Opens About on click. */}
           <button
             onClick={onAboutOpen}
-            className="font-display text-sm tracking-[0.1em] uppercase transition-colors whitespace-nowrap shrink-0"
+            className="font-display text-base tracking-[0.1em] uppercase transition-colors whitespace-nowrap shrink-0"
             style={{ color: 'var(--text)' }}
             title="About Slower Stranger"
           >
@@ -94,7 +94,7 @@ export const TopNav = ({
           <div className="flex items-center gap-2 shrink-0 md:order-last">
             <button
               onClick={onAboutOpen}
-              className="hidden md:inline-flex font-display tracking-wide text-xs transition-colors px-2"
+              className="hidden md:inline-flex font-display tracking-wide text-sm transition-colors px-2"
               style={{ color: 'var(--text-3)' }}
             >
               About
@@ -141,7 +141,7 @@ export const TopNav = ({
                 key={opt.id}
                 onClick={() => onSourceChange(opt.id)}
                 aria-pressed={active}
-                className="px-3.5 md:px-4 py-1.5 rounded-full text-xs font-display tracking-wide transition-colors whitespace-nowrap shrink-0"
+                className="px-3.5 md:px-4 py-1.5 rounded-full text-sm font-display tracking-wide transition-colors whitespace-nowrap shrink-0"
                 style={
                   active
                     ? {

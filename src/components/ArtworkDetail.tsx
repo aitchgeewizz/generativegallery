@@ -679,7 +679,7 @@ export const ArtworkDetail = ({
               {artistName && (
                 <button
                   onClick={() => handleSearchAllCollections(artistName, 'maker')}
-                  className="text-xs font-display tracking-[0.18em] uppercase transition-colors block text-left underline-offset-4 hover:underline mb-3"
+                  className="text-sm font-display tracking-[0.18em] uppercase transition-colors block text-left underline-offset-4 hover:underline mb-3"
                   style={{ color: 'var(--text-2)' }}
                 >
                   {artistName}
@@ -693,13 +693,13 @@ export const ArtworkDetail = ({
 
               {/* Medium / one-line metadata */}
               {item.medium && (
-                <p className="text-sm mt-3 font-display" style={{ color: 'var(--text-2)' }}>{item.medium}</p>
+                <p className="text-base mt-3 font-display" style={{ color: 'var(--text-2)' }}>{item.medium}</p>
               )}
 
               {/* Collection source */}
               {item.collectionSource && (
                 <p
-                  className="text-[11px] tracking-[0.18em] uppercase font-display mt-5"
+                  className="text-xs tracking-[0.18em] uppercase font-display mt-5"
                   style={{ color: 'var(--text-3)' }}
                 >
                   {item.collectionSource}
@@ -710,7 +710,7 @@ export const ArtworkDetail = ({
             {/* Short description */}
             {shortText && (
               <p
-                className="mt-6 text-sm leading-relaxed font-display"
+                className="mt-6 text-base leading-relaxed font-display"
                 style={{ color: 'var(--text-2)' }}
               >
                 {shortText}
@@ -721,7 +721,7 @@ export const ArtworkDetail = ({
             {tags.length > 0 && (
               <div className="mt-7">
                 <p
-                  className="text-[11px] uppercase tracking-[0.18em] font-display mb-3"
+                  className="text-xs uppercase tracking-[0.18em] font-display mb-3"
                   style={{ color: 'var(--text-3)' }}
                 >
                   Follow a thread
@@ -731,7 +731,7 @@ export const ArtworkDetail = ({
                     <button
                       key={i}
                       onClick={() => handleSearchAllCollections(tag.label, tag.category)}
-                      className="px-3 py-1.5 rounded-full text-xs font-display tracking-wide transition-colors"
+                      className="px-3 py-1.5 rounded-full text-sm font-display tracking-wide transition-colors"
                       style={{
                         color: 'var(--text-2)',
                         background: 'var(--surface)',
@@ -772,9 +772,9 @@ export const ArtworkDetail = ({
                           />
                         )}
                         <div className="min-w-0">
-                          <p className="text-sm font-display" style={{ color: 'var(--text)' }}>{artistName}</p>
+                          <p className="text-base font-display" style={{ color: 'var(--text)' }}>{artistName}</p>
                           {(enrichment.artistInfo.born || enrichment.artistInfo.died) && (
-                            <p className="text-xs mt-0.5 font-display" style={{ color: 'var(--text-2)' }}>
+                            <p className="text-sm mt-0.5 font-display" style={{ color: 'var(--text-2)' }}>
                               {enrichment.artistInfo.born && enrichment.artistInfo.died
                                 ? `Born ${enrichment.artistInfo.born}, died ${enrichment.artistInfo.died}`
                                 : enrichment.artistInfo.born
@@ -783,14 +783,14 @@ export const ArtworkDetail = ({
                             </p>
                           )}
                           {enrichment.artistInfo.nationality && (
-                            <p className="text-xs mt-0.5 font-display" style={{ color: 'var(--text-2)' }}>
+                            <p className="text-sm mt-0.5 font-display" style={{ color: 'var(--text-2)' }}>
                               {enrichment.artistInfo.nationality}
                             </p>
                           )}
                         </div>
                       </div>
                       {enrichment.artistInfo.summary && (
-                        <p className="text-sm leading-relaxed font-display" style={{ color: 'var(--text-2)' }}>
+                        <p className="text-base leading-relaxed font-display" style={{ color: 'var(--text-2)' }}>
                           {enrichment.artistInfo.summary}
                         </p>
                       )}
@@ -819,7 +819,7 @@ export const ArtworkDetail = ({
                 )}
                 {enrichment.artworkContext && (
                   <div className="space-y-3">
-                    <p className="text-sm leading-relaxed font-display" style={{ color: 'var(--text-2)' }}>
+                    <p className="text-base leading-relaxed font-display" style={{ color: 'var(--text-2)' }}>
                       {enrichment.artworkContext.summary}
                     </p>
                     {enrichment.artworkContext.wikiUrl && (
@@ -848,7 +848,7 @@ export const ArtworkDetail = ({
                     </div>
                   )}
                   {enrichment.relatedFetched && enrichment.relatedWorks.length === 0 && !enrichment.relatedLoading && (
-                    <p className="text-sm font-display" style={{ color: 'var(--text-3)' }}>
+                    <p className="text-base font-display" style={{ color: 'var(--text-3)' }}>
                       No other works found in museum collections.
                     </p>
                   )}
@@ -874,14 +874,14 @@ export const ArtworkDetail = ({
                             />
                           </div>
                           <p
-                            className="text-xs mt-2 line-clamp-2 leading-snug font-display transition-colors"
+                            className="text-sm mt-2 line-clamp-2 leading-snug font-display transition-colors"
                             style={{ color: 'var(--text)' }}
                           >
                             {work.title}
                           </p>
                           {work.date && (
                             <p
-                              className="text-[11px] mt-0.5 font-display"
+                              className="text-xs mt-0.5 font-display"
                               style={{ color: 'var(--text-3)' }}
                             >
                               {work.date}
@@ -900,7 +900,7 @@ export const ArtworkDetail = ({
                 open={expandedSections.has('details')}
                 onToggle={() => toggleSection('details')}
               >
-                <div className="space-y-5 text-sm">
+                <div className="space-y-5 text-base">
                   {creativeParticipants.length > 1 && (
                     <Field label={creativeParticipants.length === 1 ? 'Creator' : 'People'}>
                       <div className="space-y-1.5">
@@ -909,7 +909,7 @@ export const ArtworkDetail = ({
                             <span style={{ color: 'var(--text-3)' }}>{p.role}: </span>
                             <span style={{ color: 'var(--text) ' }}>{p.name}</span>
                             {p.date && (
-                              <span className="text-xs ml-1" style={{ color: 'var(--text-3)' }}>({p.date})</span>
+                              <span className="text-sm ml-1" style={{ color: 'var(--text-3)' }}>({p.date})</span>
                             )}
                           </div>
                         ))}
@@ -933,7 +933,7 @@ export const ArtworkDetail = ({
             </div>
 
             {/* Bottom links: copyright + view original + download */}
-            <div className="mt-10 pt-6 text-xs font-display" style={{ borderTop: '1px solid var(--border)' }}>
+            <div className="mt-10 pt-6 text-sm font-display" style={{ borderTop: '1px solid var(--border)' }}>
               <p className="mb-3" style={{ color: 'var(--text-3)' }}>{copyrightText}</p>
               <div className="flex items-center gap-5">
                 {item.url && (
@@ -941,7 +941,7 @@ export const ArtworkDetail = ({
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="transition-colors underline-offset-4 hover:underline text-sm"
+                    className="transition-colors underline-offset-4 hover:underline text-base"
                     style={{ color: 'var(--text)' }}
                   >
                     View at source
@@ -950,7 +950,7 @@ export const ArtworkDetail = ({
                 {canDownload && (
                   <button
                     onClick={handleDownload}
-                    className="transition-colors underline-offset-4 hover:underline text-sm"
+                    className="transition-colors underline-offset-4 hover:underline text-base"
                     style={{ color: 'var(--text)' }}
                   >
                     Download image
@@ -985,7 +985,7 @@ const ExpandableSection = ({
       className="w-full flex items-center justify-between py-3.5 text-left group"
     >
       <span
-        className="text-[11px] uppercase tracking-[0.18em] font-display transition-colors"
+        className="text-xs uppercase tracking-[0.18em] font-display transition-colors"
         style={{ color: 'var(--text-2)' }}
       >
         {title}
@@ -1024,7 +1024,7 @@ const ExpandableSection = ({
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div>
     <p
-      className="text-[11px] uppercase tracking-[0.18em] font-display mb-1"
+      className="text-xs uppercase tracking-[0.18em] font-display mb-1"
       style={{ color: 'var(--text-3)' }}
     >
       {label}
@@ -1047,14 +1047,14 @@ const SkeletonText = ({ lines = 3 }: { lines?: number }) => (
 
 const NoEnrichment = ({ query, label }: { query: string; label: string }) => (
   <div className="space-y-3">
-    <p className="text-sm font-display" style={{ color: 'var(--text-3)' }}>
+    <p className="text-base font-display" style={{ color: 'var(--text-3)' }}>
       No additional information available.
     </p>
     <a
       href={`https://www.google.com/search?q=${encodeURIComponent(query)}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 text-xs transition-colors"
+      className="inline-flex items-center gap-1.5 text-sm transition-colors"
       style={{ color: 'var(--text-2)' }}
     >
       {label}
@@ -1070,7 +1070,7 @@ const ExternalLink = ({ href, children }: { href: string; children: React.ReactN
     href={href}
     target="_blank"
     rel="noopener noreferrer"
-    className="inline-flex items-center gap-1.5 text-xs transition-colors underline-offset-4 hover:underline"
+    className="inline-flex items-center gap-1.5 text-sm transition-colors underline-offset-4 hover:underline"
     style={{ color: 'var(--text-2)' }}
   >
     {children}

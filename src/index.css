@@ -64,8 +64,8 @@ body {
    - Large display (hero h1, artwork title): ExtraLight (200) — the
      editorial moment. Thin and elegant at large sizes.
    - Body, wordmark, and most UI: Light (300) — default from body.
-   - Eyebrows at text-[11px] / text-[10px]: Regular (400) so they
-     read clearly at low contrast in both light and dark themes. */
+   - Small uppercase eyebrows: Regular (400) so they read clearly at
+     low contrast in both light and dark themes. */
 .font-display.text-3xl,
 .font-display.text-4xl,
 .font-display.md\:text-3xl,
@@ -73,6 +73,7 @@ body {
 .font-display.lg\:text-7xl {
   font-weight: 200;
 }
+.font-display.text-xs.uppercase,
 .font-display.text-\[11px\],
 .font-display.text-\[10px\] {
   font-weight: 400;
