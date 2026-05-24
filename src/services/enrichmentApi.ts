@@ -265,12 +265,17 @@ export const fetchArtistInfo = async (artistName: string): Promise<ArtistInfo | 
       return null;
     }
 
-    // Validate Wikipedia result — must mention the artist's name
-    // strongly enough to be plausibly about them. The old check
-    // accepted any single name part (so "Charles Wright" would accept
-    // an article about any unrelated Charles). We now require ALL
-    // meaningful name parts to appear in the extract, AND the article
-    // must look like it's about a person (not a song, place, etc).
+    // Validate Wikipedia result — the article must (a) name the
+    // artist (all meaningful name parts present), (b) describe a
+    // person in an art discipline, and (c) not be about an album,
+    // song, novel, etc. that happens to share the name.
+    //
+    // The old "looks like a person" check accepted any biographical
+    // marker like "born" or "is a", which let unrelated namesakes
+    // through — e.g. "Peter Bradford" returning the Wikipedia article
+    // about a former U.S. nuclear regulator. We now require an
+    // explicit art-discipline keyword. Wrong info is worse than no
+    // info, so erring strict is the right trade.
     let validatedSummary = wikiSummary;
     if (wikiSummary?.extract) {
       const extractLower = wikiSummary.extract.toLowerCase();
@@ -284,21 +289,13 @@ export const fetchArtistInfo = async (artistName: string): Promise<ArtistInfo | 
         meaningfulParts.length > 0 &&
         meaningfulParts.every((part) => extractLower.includes(part));
 
-      // Looks like an article about a person, not a song/place/object.
-      const looksLikePerson =
-        extractLower.includes('born') ||
-        extractLower.includes('artist') ||
-        extractLower.includes('painter') ||
-        extractLower.includes('designer') ||
-        extractLower.includes('sculptor') ||
-        extractLower.includes('photographer') ||
-        extractLower.includes('architect') ||
-        extractLower.includes('illustrator') ||
-        extractLower.includes('printmaker') ||
-        extractLower.includes('was a ') ||
-        extractLower.includes('is a ') ||
-        extractLower.includes('he was') ||
-        extractLower.includes('she was');
+      // Must mention an art discipline by name. Word-boundary regex
+      // so "art" matches "fine art" / "art director" but not "smart"
+      // or "department".
+      const artDiscipline =
+        /\b(artist|painter|sculptor|photographer|illustrator|printmaker|designer|architect|draftsman|draughtsman|craftsman|ceramicist|ceramist|potter|weaver|etcher|engraver|lithographer|art director|art historian|fine arts?|visual arts?|decorative arts?|applied arts?|contemporary art|modern art|work of art)\b/i.test(
+          wikiSummary.extract,
+        );
 
       const isFalsePositive =
         extractLower.includes('album') ||
@@ -308,7 +305,7 @@ export const fetchArtistInfo = async (artistName: string): Promise<ArtistInfo | 
         extractLower.includes('video game') ||
         extractLower.includes('novel by');
 
-      if (!fullNamePresent || !looksLikePerson || isFalsePositive) {
+      if (!fullNamePresent || !artDiscipline || isFalsePositive) {
         validatedSummary = null; // Discard unrelated Wikipedia result
       }
     }

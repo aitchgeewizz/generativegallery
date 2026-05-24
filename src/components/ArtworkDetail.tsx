@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { PortfolioItem } from '../types';
 import { extractTags, extractArtistName } from '../utils/tagExtractor';
 import { useEnrichment } from '../hooks/useEnrichment';
+import { useColorPalette } from '../hooks/useColorPalette';
+import { ColorPalette } from './ColorPalette';
 
 /** Strip HTML tags from museum API text */
 const stripHtml = (html: string): string =>
@@ -79,6 +81,10 @@ export const ArtworkDetail = ({
   const tags = item ? extractTags(item) : [];
   const artistName = item ? extractArtistName(item) : null;
   const enrichment = useEnrichment(item);
+  // Extract a 5-colour palette from the artwork. Uses thumbnailUrl
+  // (small, already cached for the wall tile) when available so we
+  // don't pull the full-resolution image just to sample colour.
+  const palette = useColorPalette(item?.thumbnailUrl || item?.imageUrl);
 
   const navigationItems = allItems;
   const currentIndex = item ? navigationItems.findIndex((i) => i.id === item.id) : -1;
@@ -744,6 +750,11 @@ export const ArtworkDetail = ({
                 </div>
               </div>
             )}
+
+            {/* Colour palette extracted from the artwork. Renders only
+                if we got pixel data back (CORS-tainted images return
+                an empty palette and the block stays hidden). */}
+            <ColorPalette colors={palette} />
 
             {/* Divider */}
             <div className="h-px my-8" style={{ background: 'var(--border)' }} />
