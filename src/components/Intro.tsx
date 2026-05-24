@@ -3,15 +3,15 @@ import { motion } from 'framer-motion';
 /**
  * First-paint intro. Per Hannah's redesign:
  * - One uniform large display size (no stepped hierarchy).
- * - Copy: "SLOWER. STRANGER. A few unexpected pieces of art and
- *   design we can appreciate and be inspired by. Not part of the
- *   algorithm but from those who came before us."
+ * - Single typographic style: SeasonMix Regular, no italic.
+ * - Copy: "SLOWER:STRANGER A few unexpected pieces of art and
+ *   design we can appreciate and be inspired by."
  * - "Loading the wall" animates as a left-to-right wave of opacity per
  *   character, so the loading state is unmistakable.
  *
- * Punctuation note: the wordmark uses full stops, not a colon. That
- * matches the domain (slowerstranger.com) and the typographic gesture
- * of pacing the brand carries.
+ * Wordmark convention: SLOWER:STRANGER, uppercase, with a colon, no
+ * trailing period. Matches the logo treatment used in TopNav and
+ * AboutModal.
  */
 
 const LOADING_TEXT = 'Loading the wall';
@@ -34,8 +34,8 @@ export const Intro = () => {
           className="font-display leading-[1.05] text-4xl md:text-6xl lg:text-7xl tracking-tight"
           style={{ color: 'var(--text)' }}
         >
-          <span className="uppercase">Slower. Stranger.</span>{' '}
-          A few unexpected pieces of art and design we can appreciate and be inspired by. Not part of the algorithm but from those who came before us.
+          <span className="uppercase">SLOWER:STRANGER</span>{' '}
+          A few unexpected pieces of art and design we can appreciate and be inspired by.
         </motion.h1>
 
         <motion.p

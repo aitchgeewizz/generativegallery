@@ -62,25 +62,25 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
               className="text-2xl md:text-3xl tracking-tight leading-tight uppercase"
               style={{ color: 'var(--text)' }}
             >
-              Slower. <span className="italic">Stranger.</span>
+              SLOWER:STRANGER
             </h2>
 
             <p
               className="mt-6 text-base md:text-lg leading-snug"
               style={{ color: 'var(--text-2)' }}
             >
-              Most design inspiration online is a firehose. This collection aims to slow us down. Appreciate the work and hopefully see something unexpected.
+              Most design inspiration online is a firehose of right now. This is meant to slow you down. Appreciate the work. Maybe see something unexpected.
             </p>
 
             <p
               className="mt-5 text-sm md:text-base leading-relaxed"
               style={{ color: 'var(--text-2)' }}
             >
-              This is a browser that pulls from public museum APIs (Cooper Hewitt, Harvard, the Art Institute of Chicago) and throws a handful of pieces at you. Take them in. Sit with them. Read more if something stops you, or just be in awe of the work.
+              It&rsquo;s a browser that pulls from public museum APIs (Cooper Hewitt, Harvard, the Art Institute of Chicago) and throws a handful of pieces at you. Take them in. Sit with them. Read more if something stops you, or just be in awe of the work.
             </p>
 
             <h3
-              className="mt-10 text-[11px] uppercase tracking-[0.2em]"
+              className="mt-10 text-[11px] uppercase tracking-[0.18em]"
               style={{ color: 'var(--text-3)' }}
             >
               How this came together
@@ -89,18 +89,18 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
               className="mt-3 text-sm md:text-base leading-relaxed"
               style={{ color: 'var(--text-2)' }}
             >
-              I&rsquo;d been playing with a bunch of new tools and this one pushed me further. Into the terminal. Into corners of Claude Code I hadn&rsquo;t used before. I wanted to see if I could pull APIs into a project and end up with something that didn&rsquo;t look like the generic AI-coded layouts everywhere right now, or the catalogue-style archive sites the museums themselves run. Scratching my own itch and stretching what I can do, at the same time.
+              I&rsquo;d been playing with a bunch of new tools and this project pushed me further than the others. As a designer who never used to touch code, I made it into the terminal. Into corners of Claude Code I hadn&rsquo;t used before. I wanted to go beyond a static website. Build something with APIs and see if I could also explore new and interesting layouts and designs. Something that didn&rsquo;t look like the generic AI-coded layouts everywhere right now. Or a regular archive site, where you had to know what you were looking for.
             </p>
             <p
               className="mt-4 text-sm md:text-base leading-relaxed"
               style={{ color: 'var(--text-2)' }}
             >
-              The why is personal too. I&rsquo;d been overwhelmed and overloaded with the same content online. I miss the way I used to fill my cup. Going out into the world. Wandering through a gallery. Picking up a book. Touching real things. Looking at the work of craftspeople and artists from across history. That&rsquo;s how I get replenished. This is an attempt to bring some of that feeling back online, on the days I can&rsquo;t get out there.
+              I made this because I craved seeing great things. Outside the regular algorithms of online inspiration sites. This doesn&rsquo;t beat going out and seeing it &ldquo;for real life&rdquo; as Bluey would say. But it&rsquo;s an attempt to bring some of that feeling back online, on the days I can&rsquo;t get out there.
             </p>
 
             <p
               className="mt-10 text-xs tracking-wide leading-relaxed"
-              style={{ color: 'var(--text-4)' }}
+              style={{ color: 'var(--text-3)' }}
             >
               Built by{' '}
               <a

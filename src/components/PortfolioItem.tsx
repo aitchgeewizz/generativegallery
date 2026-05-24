@@ -104,14 +104,14 @@ export const PortfolioItem = ({ item, onClick }: PortfolioItemProps) => {
         }}
       >
         <p
-          className="text-xs font-medium leading-tight line-clamp-3 font-display"
+          className="text-xs leading-tight line-clamp-3 font-display"
           style={{ color: 'var(--text-2)' }}
         >
           {item.title}
         </p>
         {item.description && (
           <p
-            className="text-[10px] mt-1 leading-tight line-clamp-1 font-display"
+            className="text-[11px] mt-1 leading-tight line-clamp-1 font-display"
             style={{ color: 'var(--text-3)' }}
           >
             {item.description}

@@ -257,27 +257,45 @@ export const ArtworkDetail = ({
       style={{ background: 'var(--bg)' }}
     >
         {/* Image Stage. On desktop (>=md): between left rail (~60px)
-            and right panel (PANEL_W). On mobile: full width on top
-            (or fullscreen when panelHidden), with the info panel
-            taking the bottom portion otherwise.
+            and right panel (PANEL_W) in panel-open mode, full viewport
+            in fullscreen. On mobile: full width on top, with the info
+            panel taking the bottom portion (or fullscreen when
+            panelHidden).
 
-            Mobile interactions:
-              - swipe left/right on the image stage → next/prev artwork
-              - tap the image itself → toggle fullscreen (hide panel)
-              - tap the background → close the detail view */}
+            Panel-open mode gets a little inner padding (p-5 on desktop,
+            p-3 on mobile) so the artwork has breathing room and doesn't
+            look like it's running off the viewport edge. Fullscreen
+            drops that padding for a truly edge-to-edge view.
+
+            Interactions:
+              - click/tap the image → toggle fullscreen (any size screen).
+                Suppressed while zoomed (clicks belong to the panner) and
+                during a mobile swipe (handled by the touch listeners).
+              - click/tap the empty surround:
+                  - in panel-open mode → close the detail view
+                  - in fullscreen → exit fullscreen (back to panel-open)
+              - swipe left/right (mobile only) → next/prev artwork
+              - scroll wheel → zoom; double-click → toggle zoom */}
         <div
-          className="absolute flex items-center justify-center transition-[right,bottom,top] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+          className={`absolute flex items-center justify-center transition-[left,right,bottom,top] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${panelHidden ? '' : 'p-3 md:p-5'}`}
           style={
             isMobile
               ? panelHidden
                 ? { top: 0, left: 0, right: 0, bottom: 0 }
                 : { top: 0, left: 0, right: 0, bottom: '55vh' }
-              : { top: 0, left: 56, bottom: 0, right: panelHidden ? 0 : PANEL_W }
+              : {
+                  top: 0,
+                  left: panelHidden ? 0 : 56,
+                  bottom: 0,
+                  right: panelHidden ? 0 : PANEL_W,
+                }
           }
           onWheel={handleWheel}
           onDoubleClick={handleDoubleClick}
           onClick={(e) => {
-            if (e.target === e.currentTarget) onClose();
+            if (e.target !== e.currentTarget) return;
+            if (panelHidden) setPanelHidden(false);
+            else onClose();
           }}
           onTouchStart={(e) => {
             if (!isMobile || e.touches.length !== 1) return;
@@ -324,16 +342,16 @@ export const ArtworkDetail = ({
                 src={item.imageUrl}
                 alt={item.title}
                 onClick={(e) => {
-                  // Mobile: a clean tap on the image (not a swipe)
-                  // toggles fullscreen so visitors can swipe through
-                  // pieces uninterrupted. Desktop: do nothing here,
-                  // the expand button at top-right does the same job.
-                  if (isMobile && !touchMoved.current) {
-                    e.stopPropagation();
-                    setPanelHidden((h) => !h);
-                  }
+                  // Click/tap the image toggles fullscreen on every size.
+                  // Suppress when zoomed (clicks belong to the panner) and
+                  // during a mobile swipe (the touch listeners on the stage
+                  // flag this by setting touchMoved).
+                  if (zoom > 1) return;
+                  if (isMobile && touchMoved.current) return;
+                  e.stopPropagation();
+                  setPanelHidden((h) => !h);
                 }}
-                className="max-w-full max-h-full object-contain select-none p-3 md:p-0"
+                className="max-w-full max-h-full object-contain select-none"
                 style={{
                   transform: `scale(${zoom}) translate(${panOffset.x}px, ${panOffset.y}px)`,
                   transformOrigin: 'center center',
@@ -376,7 +394,7 @@ export const ArtworkDetail = ({
                 {item.description && (
                   <p className="text-sm" style={{ color: 'var(--text-3)' }}>{item.description}</p>
                 )}
-                <p className="text-xs mt-6" style={{ color: 'var(--text-4)' }}>Image unavailable</p>
+                <p className="text-xs mt-6" style={{ color: 'var(--text-3)' }}>Image unavailable</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -393,7 +411,7 @@ export const ArtworkDetail = ({
             style={{
               left: isMobile || panelHidden ? '50%' : `calc(50% - ${PANEL_W / 2}px)`,
               transform: 'translateX(-50%)',
-              color: 'var(--text-4)',
+              color: 'var(--text-3)',
             }}
           >
             {Math.round(zoom * 100)}% · scroll to zoom, double-click to reset
@@ -426,31 +444,88 @@ export const ArtworkDetail = ({
           )}
         </motion.button>
 
-        {/* Position indicator — only when panel hidden, sits at bottom
-            of the image stage so the viewer always knows where they
-            are in the handful. */}
+        {/* Fullscreen footer — prev / position / next, sitting low and
+            quiet so the artwork is the only loud thing on screen. The
+            arrows are the only chrome that survives fullscreen besides
+            the small contract icon top-right. */}
         {panelHidden && (
           <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
             transition={{ duration: 0.3 }}
-            className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 text-xs font-display tabular-nums tracking-[0.18em] uppercase pointer-events-none"
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center gap-5"
             style={{ color: 'var(--text-3)' }}
           >
-            {currentIndex >= 0 ? currentIndex + 1 : '?'} / {navigationItems.length}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(-1);
+              }}
+              aria-label="Previous artwork"
+              className="p-1 transition-colors"
+              style={{ color: 'inherit' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'inherit')}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <span className="text-xs font-display tabular-nums tracking-[0.18em] uppercase">
+              {currentIndex >= 0 ? currentIndex + 1 : '?'} / {navigationItems.length}
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(1);
+              }}
+              aria-label="Next artwork"
+              className="p-1 transition-colors"
+              style={{ color: 'inherit' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'inherit')}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </button>
           </motion.div>
         )}
 
-        {/* ── Left thumbnail rail (desktop only) ─────────────────── */}
+        {/* ── Left thumbnail rail (desktop only) ───────────────────
+            Fades and slides out in fullscreen so the artwork stands
+            on its own — no chrome, no thumbnails, just the piece. */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.15 }}
+          animate={{
+            opacity: panelHidden ? 0 : 1,
+            x: panelHidden ? -20 : 0,
+          }}
+          transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
           className="hidden md:flex absolute left-0 top-0 bottom-0 w-14 md:w-16 z-40 flex-col items-center pt-4 pb-4"
           style={{
             background:
               'linear-gradient(to right, var(--bg) 0%, var(--bg) 50%, transparent 100%)',
+            pointerEvents: panelHidden ? 'none' : 'auto',
           }}
         >
           {/* Close */}
@@ -535,7 +610,7 @@ export const ArtworkDetail = ({
 
           {/* Counter */}
           <span
-            className="text-[10px] font-display tabular-nums tracking-wide mt-2 shrink-0"
+            className="text-[11px] font-display tabular-nums tracking-wide mt-2 shrink-0"
             style={{ color: 'var(--text-3)' }}
           >
             {currentIndex >= 0 ? currentIndex + 1 : '?'}/{navigationItems.length}
@@ -640,7 +715,7 @@ export const ArtworkDetail = ({
             {tags.length > 0 && (
               <div className="mt-7">
                 <p
-                  className="text-[10px] uppercase tracking-[0.2em] font-display mb-3"
+                  className="text-[11px] uppercase tracking-[0.18em] font-display mb-3"
                   style={{ color: 'var(--text-3)' }}
                 >
                   Follow a thread
@@ -767,7 +842,7 @@ export const ArtworkDetail = ({
                     </div>
                   )}
                   {enrichment.relatedFetched && enrichment.relatedWorks.length === 0 && !enrichment.relatedLoading && (
-                    <p className="text-sm font-display italic" style={{ color: 'var(--text-3)' }}>
+                    <p className="text-sm font-display" style={{ color: 'var(--text-3)' }}>
                       No other works found in museum collections.
                     </p>
                   )}
@@ -943,7 +1018,7 @@ const ExpandableSection = ({
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div>
     <p
-      className="text-[10px] uppercase tracking-[0.18em] font-display mb-1"
+      className="text-[11px] uppercase tracking-[0.18em] font-display mb-1"
       style={{ color: 'var(--text-3)' }}
     >
       {label}
@@ -966,7 +1041,7 @@ const SkeletonText = ({ lines = 3 }: { lines?: number }) => (
 
 const NoEnrichment = ({ query, label }: { query: string; label: string }) => (
   <div className="space-y-3">
-    <p className="text-sm font-display italic" style={{ color: 'var(--text-3)' }}>
+    <p className="text-sm font-display" style={{ color: 'var(--text-3)' }}>
       No additional information available.
     </p>
     <a
