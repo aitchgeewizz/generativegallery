@@ -106,14 +106,17 @@ export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardA
     const maxAttempts = 5;
     let attempts = 0;
 
-    // Pick random themes for variety
-    const shuffledThemes = [...PHOTO_THEMES].sort(() => Math.random() - 0.5);
-
+    // Pick a fresh random theme per attempt rather than cycling a
+    // shuffle — the cycle meant every refresh hit the same first-few
+    // themes and surfaced the same hero pieces. Random pick across
+    // the full pool gives a different slice each time.
     while (artworks.length < count && attempts < maxAttempts) {
-      const theme = shuffledThemes[attempts % shuffledThemes.length];
+      const theme = PHOTO_THEMES[Math.floor(Math.random() * PHOTO_THEMES.length)];
       attempts++;
 
-      const randomPage = Math.floor(Math.random() * 30) + 1;
+      // Pages 1–50: pages 1–5 cluster popular pieces; widening the
+      // range pulls in records from deeper in the catalogue.
+      const randomPage = Math.floor(Math.random() * 50) + 1;
 
       // Search for photography with theme keywords
       const response = await fetch(

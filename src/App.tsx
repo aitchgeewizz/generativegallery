@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { InfiniteCanvas } from './components/InfiniteCanvas';
 import { TopNav, SourceMode } from './components/TopNav';
@@ -100,8 +100,38 @@ function App() {
     return (valid.includes(saved as SourceMode) ? (saved as SourceMode) : 'mixed');
   });
 
+  // Session-wide set of artwork signatures already shown. Prevents the
+  // same artwork reappearing across refreshes / category switches.
+  // Lives in a ref so it survives re-renders but resets on a hard page
+  // reload. Each API has a finite popular-page bias, so without this
+  // the user sees the same hero pieces over and over.
+  //
+  // We key off (imageUrl || url) rather than item.id because adapters
+  // assign id by array index — every refresh, the first item is id=0
+  // regardless of what artwork it actually is, so id-based dedup
+  // silently treated new artworks as already-seen.
+  const seenSignaturesRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     let cancelled = false;
+
+    /** Stable cross-refresh signature for an artwork. */
+    const signatureOf = (i: PortfolioItem): string =>
+      i.imageUrl || i.url || String(i.id);
+
+    /** Drop items the user has already been served this session, AND
+     *  add the kept items' signatures to the seen-set so a follow-up
+     *  fetch in the same load (the "second pass") won't return them. */
+    const filterAndMarkUnseen = (items: PortfolioItem[]): PortfolioItem[] => {
+      const out: PortfolioItem[] = [];
+      for (const item of items) {
+        const sig = signatureOf(item);
+        if (seenSignaturesRef.current.has(sig)) continue;
+        seenSignaturesRef.current.add(sig);
+        out.push(item);
+      }
+      return out;
+    };
 
     const loadHandful = async () => {
       setItems([]);
@@ -123,13 +153,34 @@ function App() {
               }
             }),
           );
-          raw = interleave(perSource).slice(0, HANDFUL);
+          raw = filterAndMarkUnseen(interleave(perSource)).slice(0, HANDFUL);
+
+          // If the seen-set ate most of the batch, kick a second round.
+          // Each API call uses a different random seed (search term,
+          // random page) so a second pass usually surfaces fresh items.
+          if (!cancelled && raw.length < HANDFUL * 0.7) {
+            console.log(`🔁 Only ${raw.length} unseen — fetching a second pass`);
+            const second = await Promise.all(
+              collections.map((c) =>
+                c.fetchItems(PER_SOURCE).catch(() => [] as PortfolioItem[]),
+              ),
+            );
+            const moreUnseen = filterAndMarkUnseen(interleave(second));
+            raw = [...raw, ...moreUnseen].slice(0, HANDFUL);
+          }
         } else {
           const c = getCollection(sourceMode);
           if (!c) throw new Error(`Unknown source: ${sourceMode}`);
           console.log(`🔄 Loading ${HANDFUL} from ${c.name}…`);
-          raw = await c.fetchItems(HANDFUL);
-          raw = raw.slice(0, HANDFUL);
+          const first = await c.fetchItems(HANDFUL);
+          raw = filterAndMarkUnseen(first).slice(0, HANDFUL);
+
+          if (!cancelled && raw.length < HANDFUL * 0.7) {
+            console.log(`🔁 Only ${raw.length} unseen in ${c.name} — fetching a second pass`);
+            const second = await c.fetchItems(HANDFUL).catch(() => [] as PortfolioItem[]);
+            const moreUnseen = filterAndMarkUnseen(second);
+            raw = [...raw, ...moreUnseen].slice(0, HANDFUL);
+          }
         }
 
         if (cancelled) return;
@@ -139,7 +190,7 @@ function App() {
         }
 
         const placed = layoutCentered(raw);
-        console.log(`✅ Loaded ${placed.length} items (${sourceMode})`);
+        console.log(`✅ Loaded ${placed.length} items (${sourceMode}, seen=${seenSignaturesRef.current.size})`);
         setItems(placed);
         setLoading(false);
       } catch (err) {

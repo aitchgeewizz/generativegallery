@@ -166,19 +166,28 @@ export const fetchRandomDesignObjects = async (count: number = 32): Promise<Desi
     const results: DesignObjectData[] = [];
     const seen = new Set<string>();
 
-    // Previous approach: broad overlapping search terms ("poster", "bauhaus", "modernist", ...)
-    // returned the same hero pieces repeatedly. After dedup we'd land on ~4 items
-    // regardless of how many requests we made.
-    //
-    // New approach: fewer but more *distinct* search terms, fetched in parallel,
-    // with a random page per term so each refresh surfaces a different slice of
-    // the collection. Image is the only hard filter.
-    const distinctTerms = ['poster', 'textile', 'wallpaper', 'ceramic', 'furniture', 'metalwork'];
+    // Distinct medium / object-type terms across Cooper Hewitt's
+    // catalogue. We shuffle the pool and pick a handful per fetch so
+    // different refreshes hit different slices of the archive, and
+    // we use a random page per term so we're not always on page 1
+    // where the popular hero pieces cluster.
+    const ALL_TERMS = [
+      'poster', 'textile', 'wallpaper', 'ceramic', 'furniture', 'metalwork',
+      'glass', 'jewelry', 'illustration', 'drawing', 'lace', 'wallcovering',
+      'chair', 'lamp', 'tableware', 'embroidery', 'printed textile',
+      'graphic design', 'sample', 'tile', 'fan', 'book cover',
+    ];
+    const TERMS_PER_FETCH = 8;
+    const distinctTerms = [...ALL_TERMS]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, TERMS_PER_FETCH);
     const target = Math.max(count * 2, 30);
 
     const pages = await Promise.all(
       distinctTerms.map(async (term) => {
-        const randomPage = Math.floor(Math.random() * 10) + 1;
+        // Pages 1–20: still favours well-described records but avoids
+        // the pages 1–5 hero cluster that returns the same items.
+        const randomPage = Math.floor(Math.random() * 20) + 1;
         try {
           return await searchDesignObjects(term, randomPage, 100);
         } catch {
