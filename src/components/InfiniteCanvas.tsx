@@ -1,8 +1,8 @@
 import { useCallback, useState, useEffect, useMemo } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion, useMotionValueEvent } from 'framer-motion';
 import { PortfolioItem as PortfolioItemType } from '../types';
 import { useSmoothDrag } from '../hooks/useSmoothDrag';
-import { useInfiniteGrid } from '../hooks/useInfiniteGrid';
+import { useInfiniteGrid, MIN_ITEMS_TO_LOOP } from '../hooks/useInfiniteGrid';
 import { PortfolioItem } from './PortfolioItem';
 import { ArtworkDetail } from './ArtworkDetail';
 
@@ -38,8 +38,9 @@ const computeLoopBounds = (items: PortfolioItemType[]): { width: number; height:
 };
 
 export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
-  // New smooth drag hook with momentum
-  const { position, isDragging, handlePointerDown, isClick } = useSmoothDrag();
+  // Drag offset lives in Framer Motion values, not React state — the
+  // transform below updates outside the render cycle entirely.
+  const { x, y, handlePointerDown, isClick } = useSmoothDrag();
 
   // Selected artwork for detail view
   const [selectedItem, setSelectedItem] = useState<PortfolioItemType | null>(null);
@@ -47,10 +48,42 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
   // Loop tile sized to actual items — see computeLoopBounds above.
   const loopBounds = useMemo(() => computeLoopBounds(items), [items]);
 
+  // The 3x3 loop only cares which loop-tile the viewport sits in, not
+  // the exact pixel offset. Tile indices are the sole drag-derived
+  // React state: the subscriptions below fire on every moved pixel but
+  // only setState when Math.floor crosses a boundary, so dragging
+  // within a tile re-renders nothing.
+  const [tile, setTile] = useState({ x: 0, y: 0 });
+  const shouldLoop = items.length >= MIN_ITEMS_TO_LOOP;
+
+  useMotionValueEvent(x, 'change', (latest) => {
+    if (!shouldLoop) return;
+    const tileX = Math.floor(-latest / loopBounds.width);
+    setTile((prev) => (prev.x === tileX ? prev : { x: tileX, y: prev.y }));
+  });
+
+  useMotionValueEvent(y, 'change', (latest) => {
+    if (!shouldLoop) return;
+    const tileY = Math.floor(-latest / loopBounds.height);
+    setTile((prev) => (prev.y === tileY ? prev : { x: prev.x, y: tileY }));
+  });
+
+  // Re-derive the tile when a new set loads: the drag offset persists
+  // across refreshes but the loop bounds resize, which moves every
+  // tile boundary under the unchanged offset.
+  useEffect(() => {
+    const tileX = Math.floor(-x.get() / loopBounds.width);
+    const tileY = Math.floor(-y.get() / loopBounds.height);
+    setTile((prev) =>
+      prev.x === tileX && prev.y === tileY ? prev : { x: tileX, y: tileY }
+    );
+  }, [loopBounds, x, y]);
+
   // Get seamlessly looping items using 3x3 tile pattern
   const loopedItems = useInfiniteGrid({
     baseItems: items,
-    offset: position,
+    tileX: tile.x,
+    tileY: tile.y,
     gridWidth: loopBounds.width,
     gridHeight: loopBounds.height,
   });
@@ -111,22 +144,25 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
     <div
       className="w-full h-screen overflow-hidden relative"
       style={{
-        cursor: isDragging ? 'grabbing' : 'grab',
+        // Resting cursor only — useSmoothDrag flips it to 'grabbing'
+        // imperatively so a drag never has to touch React state.
+        cursor: 'grab',
         background: 'var(--bg)',
         touchAction: 'none', // Prevent default touch behaviors
       }}
       onPointerDown={handlePointerDown}
     >
-      {/* Items layer - GPU-accelerated transform.
+      {/* Items layer - GPU-accelerated transform driven directly by the
+          motion values (no re-render per frame).
           The leading translate(50%, 50%) puts world-origin (0,0) at the
           viewport centre on first paint, so a centered grid laid out
           around (0,0) sits in the middle of the screen instead of
-          bleeding off the top-left. */}
-      <div
+          bleeding off the top-left. transformTemplate re-applies it in
+          front of whatever transform x/y generate. */}
+      <motion.div
         className="absolute inset-0 will-change-transform"
-        style={{
-          transform: `translate(50%, 50%) translate3d(${position.x}px, ${position.y}px, 0)`,
-        }}
+        style={{ x, y }}
+        transformTemplate={(_, generated) => `translate(50%, 50%) ${generated}`}
       >
         {loopedItems.map((item) => (
           <PortfolioItem
@@ -135,7 +171,7 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
             onClick={handleItemClick}
           />
         ))}
-      </div>
+      </motion.div>
 
       {/* Info overlay — thesis-aligned: no count claim, no "click-bait", just orientation */}
       <div

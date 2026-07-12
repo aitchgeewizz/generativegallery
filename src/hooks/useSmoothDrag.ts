@@ -1,158 +1,131 @@
-import { useRef, useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { animate, useMotionValue } from 'framer-motion';
 
-interface Position {
-  x: number;
-  y: number;
-}
+/**
+ * Drag-to-pan backed by Framer Motion values instead of React state.
+ *
+ * Pointer moves write straight to the motion values (x.set()), which
+ * update the canvas transform outside the React render cycle — a drag
+ * frame costs zero re-renders and zero tile re-diffs. Momentum on
+ * release is Framer's inertia animation driving the same values.
+ */
 
-interface DragState {
-  isDragging: boolean;
-  position: Position;
-  velocity: Position;
-}
+// Displacement (px) below which a pointer-down/up pair counts as a
+// click on an artwork rather than a drag.
+const CLICK_THRESHOLD = 10;
+
+// Release velocity (px/s) below which we skip the glide entirely.
+// Equivalent to the old rAF loop's 1px-per-frame gate.
+const MIN_FLING_VELOCITY = 60;
+
+// Tuned to reproduce the old hand-rolled momentum (v *= 0.95 per frame,
+// which is a 325ms decay constant travelling ~1/3 of the release
+// velocity). Framer's default power of 0.8 glides ~2.4x further —
+// too floaty for a room you're meant to wander slowly.
+const INERTIA = { type: 'inertia', power: 0.35, timeConstant: 325 } as const;
 
 export const useSmoothDrag = () => {
-  const [dragState, setDragState] = useState<DragState>({
-    isDragging: false,
-    position: { x: 0, y: 0 },
-    velocity: { x: 0, y: 0 },
-  });
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
 
-  const startPosRef = useRef<Position>({ x: 0, y: 0 });
-  const startOffsetRef = useRef<Position>({ x: 0, y: 0 });
-  const lastMoveTimeRef = useRef<number>(0);
-  const lastPosRef = useRef<Position>({ x: 0, y: 0 });
+  const startPosRef = useRef({ x: 0, y: 0 });
+  const startOffsetRef = useRef({ x: 0, y: 0 });
   const dragDistanceRef = useRef<number>(0);
-  const animationFrameRef = useRef<number | null>(null);
+  // The element whose cursor we flip to 'grabbing' for the duration of
+  // a drag. Held so pointer-up (a window listener) can restore it.
+  const surfaceRef = useRef<HTMLElement | null>(null);
 
-  // Momentum decay
-  const applyMomentum = useCallback(() => {
-    setDragState((prev) => {
-      if (prev.isDragging) return prev;
+  const handlePointerMove = useCallback(
+    (e: PointerEvent) => {
+      e.preventDefault();
 
-      const friction = 0.95;
-      const minVelocity = 0.1;
+      const deltaX = e.clientX - startPosRef.current.x;
+      const deltaY = e.clientY - startPosRef.current.y;
 
-      const newVelocityX = prev.velocity.x * friction;
-      const newVelocityY = prev.velocity.y * friction;
+      // Motion values track their own velocity, which feeds the
+      // inertia glide on release.
+      x.set(startOffsetRef.current.x + deltaX);
+      y.set(startOffsetRef.current.y + deltaY);
 
-      // Stop if velocity is too small
-      if (Math.abs(newVelocityX) < minVelocity && Math.abs(newVelocityY) < minVelocity) {
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-          animationFrameRef.current = null;
-        }
-        return {
-          ...prev,
-          velocity: { x: 0, y: 0 },
-        };
-      }
-
-      // Continue momentum
-      animationFrameRef.current = requestAnimationFrame(applyMomentum);
-
-      return {
-        ...prev,
-        position: {
-          x: prev.position.x + newVelocityX,
-          y: prev.position.y + newVelocityY,
-        },
-        velocity: {
-          x: newVelocityX,
-          y: newVelocityY,
-        },
-      };
-    });
-  }, []);
-
-  const handlePointerMove = useCallback((e: PointerEvent) => {
-    e.preventDefault();
-
-    const now = Date.now();
-    const deltaTime = now - lastMoveTimeRef.current || 16;
-
-    const deltaX = e.clientX - startPosRef.current.x;
-    const deltaY = e.clientY - startPosRef.current.y;
-
-    const newX = startOffsetRef.current.x + deltaX;
-    const newY = startOffsetRef.current.y + deltaY;
-
-    // Calculate velocity for momentum
-    const velocityX = (newX - lastPosRef.current.x) / deltaTime * 16;
-    const velocityY = (newY - lastPosRef.current.y) / deltaTime * 16;
-
-    lastPosRef.current = { x: newX, y: newY };
-    lastMoveTimeRef.current = now;
-
-    // Track total drag distance for click detection
-    dragDistanceRef.current = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-    setDragState({
-      isDragging: true,
-      position: { x: newX, y: newY },
-      velocity: { x: velocityX, y: velocityY },
-    });
-  }, []);
+      // Displacement from the press point, for click detection.
+      dragDistanceRef.current = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    },
+    [x, y]
+  );
 
   const handlePointerUp = useCallback(() => {
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
+    if (surfaceRef.current) {
+      surfaceRef.current.style.cursor = 'grab';
+      surfaceRef.current = null;
+    }
 
     window.removeEventListener('pointermove', handlePointerMove);
     window.removeEventListener('pointerup', handlePointerUp);
     window.removeEventListener('pointercancel', handlePointerUp);
 
-    setDragState((prev) => {
-      // Start momentum animation if there's velocity
-      if (Math.abs(prev.velocity.x) > 1 || Math.abs(prev.velocity.y) > 1) {
-        animationFrameRef.current = requestAnimationFrame(applyMomentum);
-      }
-
-      return {
-        ...prev,
-        isDragging: false,
-      };
-    });
-  }, [handlePointerMove, applyMomentum]);
+    // getVelocity reads ~0 when the pointer paused before release, so
+    // drag-hold-release correctly stays put instead of glancing off.
+    const velocityX = x.getVelocity();
+    const velocityY = y.getVelocity();
+    if (
+      Math.abs(velocityX) > MIN_FLING_VELOCITY ||
+      Math.abs(velocityY) > MIN_FLING_VELOCITY
+    ) {
+      // The inertia generator ignores the `to` keyframe (it derives its
+      // own target as origin + power * velocity), but `to` must still
+      // differ from the current value: framer's canAnimate() instantly
+      // completes any animation whose keyframes are all equal, and its
+      // velocity escape hatch only covers springs, not inertia.
+      animate(x, x.get() + velocityX, { ...INERTIA, velocity: velocityX });
+      animate(y, y.get() + velocityY, { ...INERTIA, velocity: velocityY });
+    }
+  }, [x, y, handlePointerMove]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      // Cancel any ongoing momentum
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
+      // Grabbing mid-glide freezes any in-flight inertia.
+      x.stop();
+      y.stop();
 
       startPosRef.current = { x: e.clientX, y: e.clientY };
-      startOffsetRef.current = { ...dragState.position };
-      lastPosRef.current = { ...dragState.position };
-      lastMoveTimeRef.current = Date.now();
+      startOffsetRef.current = { x: x.get(), y: y.get() };
       dragDistanceRef.current = 0;
 
+      // Cursor flips imperatively — the drag surface keeps cursor:grab
+      // as its resting inline style — so dragging never touches React.
+      surfaceRef.current = e.currentTarget as HTMLElement;
+      surfaceRef.current.style.cursor = 'grabbing';
       document.body.style.cursor = 'grabbing';
       document.body.style.userSelect = 'none';
 
       window.addEventListener('pointermove', handlePointerMove);
       window.addEventListener('pointerup', handlePointerUp);
       window.addEventListener('pointercancel', handlePointerUp);
-
-      setDragState((prev) => ({
-        ...prev,
-        isDragging: true,
-        velocity: { x: 0, y: 0 },
-      }));
     },
-    [dragState.position, handlePointerMove, handlePointerUp]
+    [x, y, handlePointerMove, handlePointerUp]
   );
 
+  // If the canvas unmounts mid-drag, drop the window listeners and
+  // body overrides rather than leaking them.
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [handlePointerMove, handlePointerUp]);
+
   const isClick = useCallback(() => {
-    return dragDistanceRef.current < 10;
+    return dragDistanceRef.current < CLICK_THRESHOLD;
   }, []);
 
   return {
-    position: dragState.position,
-    isDragging: dragState.isDragging,
-    velocity: dragState.velocity,
+    x,
+    y,
     handlePointerDown,
     isClick,
   };

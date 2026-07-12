@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PortfolioItem as PortfolioItemType } from '../types';
 
@@ -15,7 +15,10 @@ interface PortfolioItemProps {
 const imageLoadedCache = new Map<string, boolean>();
 const imageErrorCache = new Map<string, boolean>();
 
-export const PortfolioItem = ({ item, onClick }: PortfolioItemProps) => {
+// Memoised because the canvas renders ~9 looped copies of every item:
+// parent renders (detail open/close, tile crossings) shouldn't re-run
+// 200+ tiles whose item/onClick props are unchanged.
+export const PortfolioItem = memo(function PortfolioItem({ item, onClick }: PortfolioItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const imageUrl = item.imageUrl;
 
@@ -169,4 +172,4 @@ export const PortfolioItem = ({ item, onClick }: PortfolioItemProps) => {
       </motion.div>
     </div>
   );
-};
+});
