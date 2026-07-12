@@ -96,7 +96,7 @@ function App() {
   // visitor's preference survives refresh.
   const [sourceMode, setSourceMode] = useState<SourceMode>(() => {
     const saved = localStorage.getItem(SOURCE_STORAGE_KEY);
-    const valid: SourceMode[] = ['mixed', 'art-institute', 'met-design', 'harvard'];
+    const valid: SourceMode[] = ['mixed', 'art-institute', 'met-design', 'harvard', 'vam'];
     return (valid.includes(saved as SourceMode) ? (saved as SourceMode) : 'mixed');
   });
 

@@ -20,6 +20,8 @@ export interface PortfolioItem {
   title: string;
   description?: string;
   imageUrl?: string;
+  /** Smaller variant for the 200px wall tile; imageUrl serves the detail stage. */
+  thumbnailUrl?: string;
   fallbackUrl?: string;
   pixelated?: boolean;
   collectionSource?: string;

@@ -20,22 +20,24 @@ const imageErrorCache = new Map<string, boolean>();
 // 200+ tiles whose item/onClick props are unchanged.
 export const PortfolioItem = memo(function PortfolioItem({ item, onClick }: PortfolioItemProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const imageUrl = item.imageUrl;
+  // Prefer the small thumbnail variant for the 200×200 wall tile.
+  // The detail view still pulls `imageUrl` (full size) for the stage.
+  const imageUrl = item.thumbnailUrl || item.imageUrl;
 
   // Check cache first for instant rendering of duplicates
   const [imageLoaded, setImageLoaded] = useState(() => imageUrl ? imageLoadedCache.get(imageUrl) || false : false);
   const [imageError, setImageError] = useState(() => imageUrl ? imageErrorCache.get(imageUrl) || false : false);
-  const [currentImageUrl, setCurrentImageUrl] = useState(item.imageUrl);
+  const [currentImageUrl, setCurrentImageUrl] = useState(imageUrl);
 
   // Update image URL when item changes (important for looped grid)
   useEffect(() => {
-    if (item.imageUrl) {
-      setCurrentImageUrl(item.imageUrl);
+    if (imageUrl) {
+      setCurrentImageUrl(imageUrl);
       // Use cached state if available
-      setImageLoaded(imageLoadedCache.get(item.imageUrl) || false);
-      setImageError(imageErrorCache.get(item.imageUrl) || false);
+      setImageLoaded(imageLoadedCache.get(imageUrl) || false);
+      setImageError(imageErrorCache.get(imageUrl) || false);
     }
-  }, [item.imageUrl, item.id]);
+  }, [imageUrl, item.id]);
 
   const renderContent = () => {
     // If item has an image/gif URL, try to render it
@@ -68,9 +70,12 @@ export const PortfolioItem = memo(function PortfolioItem({ item, onClick }: Port
                 }
               }}
               onError={() => {
-                // Try fallback if available and not already tried
-                if (item.fallbackUrl && currentImageUrl !== item.fallbackUrl) {
-                  setCurrentImageUrl(item.fallbackUrl);
+                // Step down: thumbnail → full image → fallback → text card
+                const next = [item.imageUrl, item.fallbackUrl].find(
+                  (u) => u && u !== currentImageUrl,
+                );
+                if (next) {
+                  setCurrentImageUrl(next);
                   setImageLoaded(false);
                 } else {
                   // Both primary and fallback failed - show SVG shape instead
