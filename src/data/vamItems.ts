@@ -135,11 +135,11 @@ const convertVamToPortfolioItem = (
  * If the API returns fewer items than requested, that is the truth — we
  * return what came back and App.tsx compensates from the other sources.
  */
-export const generateVamItems = async (count: number = 24): Promise<PortfolioItem[]> => {
+export const generateVamItems = async (count: number = 24, signal?: AbortSignal): Promise<PortfolioItem[]> => {
   try {
     console.log(`🎨 Generating ${count} V&A items…`);
 
-    const bundles = await fetchRandomVamObjects(count);
+    const bundles = await fetchRandomVamObjects(count, signal);
 
     if (bundles.length === 0) {
       console.warn('⚠️ No objects received from V&A API');

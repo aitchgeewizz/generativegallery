@@ -82,14 +82,14 @@ export const getGridDimensions = () => {
  * RELIABLE: Uses caching and proper error handling
  * NO FALLBACK to broken local images - API must succeed
  */
-export const generateArtworkItems = async (count: number = 32): Promise<PortfolioItem[]> => {
+export const generateArtworkItems = async (count: number = 32, signal?: AbortSignal): Promise<PortfolioItem[]> => {
   const positions = generateGridPositions(count);
 
   try {
     console.log(`🎨 Requesting ${count} artworks from Art Institute API...`);
 
     // Fetch from Art Institute of Chicago API (with caching)
-    const artworks = await fetchRandomArtworks(count);
+    const artworks = await fetchRandomArtworks(count, signal);
 
     if (!artworks || artworks.length === 0) {
       throw new Error('API returned no artworks');

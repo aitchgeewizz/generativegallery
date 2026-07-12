@@ -10,6 +10,7 @@
  */
 
 import { shuffle } from '../utils/shuffle';
+import { combineSignals, isAbortError } from '../utils/abort';
 
 const BASE_URL = 'https://api.vam.ac.uk/v2';
 const IIIF_BASE = 'https://framemark.vam.ac.uk/collections';
@@ -151,7 +152,8 @@ const PAGE_SIZE = 50;
 const searchVamRecords = async (
   params: { q?: string; q_object_type?: string },
   page: number = 1,
-  pageSize: number = PAGE_SIZE
+  pageSize: number = PAGE_SIZE,
+  signal?: AbortSignal
 ): Promise<VamSearchRecord[]> => {
   try {
     const query = new URLSearchParams({
@@ -162,21 +164,25 @@ const searchVamRecords = async (
       page_size: String(pageSize),
     });
 
-    const response = await fetch(`${BASE_URL}/objects/search?${query.toString()}`);
+    const response = await fetch(`${BASE_URL}/objects/search?${query.toString()}`, {
+      signal: combineSignals(10000, signal),
+    });
     if (!response.ok) return [];
 
     const data: VamSearchResponse = await response.json();
     return (data.records || []).filter((r) => r._primaryImageId);
   } catch (error) {
-    console.error('Failed to search V&A records:', error);
+    if (!isAbortError(error)) console.error('Failed to search V&A records:', error);
     return [];
   }
 };
 
 /** Fetch one full catalogue record; null on any failure. */
-const fetchVamObjectRecord = async (systemNumber: string): Promise<VamObjectRecord | null> => {
+const fetchVamObjectRecord = async (systemNumber: string, signal?: AbortSignal): Promise<VamObjectRecord | null> => {
   try {
-    const response = await fetch(`${BASE_URL}/museumobject/${encodeURIComponent(systemNumber)}`);
+    const response = await fetch(`${BASE_URL}/museumobject/${encodeURIComponent(systemNumber)}`, {
+      signal: combineSignals(10000, signal),
+    });
     if (!response.ok) return null;
 
     const data: { record?: VamObjectRecord } = await response.json();
@@ -192,13 +198,13 @@ const fetchVamObjectRecord = async (systemNumber: string): Promise<VamObjectReco
  * one burst out of respect for the V&A's ~1 req/sec guideline. A failed
  * detail fetch leaves `full: null`; the brief fields still make a tile.
  */
-const hydrateVamRecords = async (records: VamSearchRecord[]): Promise<VamObjectBundle[]> => {
+const hydrateVamRecords = async (records: VamSearchRecord[], signal?: AbortSignal): Promise<VamObjectBundle[]> => {
   const bundles: VamObjectBundle[] = [];
   const BATCH = 8;
 
   for (let i = 0; i < records.length; i += BATCH) {
     const batch = records.slice(i, i + BATCH);
-    const fulls = await Promise.all(batch.map((r) => fetchVamObjectRecord(r.systemNumber)));
+    const fulls = await Promise.all(batch.map((r) => fetchVamObjectRecord(r.systemNumber, signal)));
     batch.forEach((brief, j) => bundles.push({ brief, full: fulls[j] }));
 
     if (i + BATCH < records.length) {
@@ -216,7 +222,7 @@ const hydrateVamRecords = async (records: VamSearchRecord[]): Promise<VamObjectB
  * do the sampling), then dedupes, shuffles, slices, and hydrates only the
  * chosen slice with full catalogue records.
  */
-export const fetchRandomVamObjects = async (count: number = 24): Promise<VamObjectBundle[]> => {
+export const fetchRandomVamObjects = async (count: number = 24, signal?: AbortSignal): Promise<VamObjectBundle[]> => {
   try {
     console.log(`🎨 Fetching ${count} objects from the V&A…`);
 
@@ -225,7 +231,7 @@ export const fetchRandomVamObjects = async (count: number = 24): Promise<VamObje
     const pages = await Promise.all(
       distinctTerms.map((term) => {
         const randomPage = Math.floor(Math.random() * term.maxPage) + 1;
-        return searchVamRecords(term.params, randomPage);
+        return searchVamRecords(term.params, randomPage, PAGE_SIZE, signal);
       })
     );
 
@@ -240,7 +246,7 @@ export const fetchRandomVamObjects = async (count: number = 24): Promise<VamObje
     }
 
     const chosen = shuffle(pool).slice(0, count);
-    const bundles = await hydrateVamRecords(chosen);
+    const bundles = await hydrateVamRecords(chosen, signal);
 
     console.log(`✅ Loaded ${bundles.length} V&A objects (pool of ${pool.length})`);
     return bundles;

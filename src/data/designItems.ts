@@ -60,13 +60,13 @@ const generateGridPositions = (count: number, centered: boolean = false) => {
  * SPEC.md: never lie about data. App.tsx compensates by pulling more
  * from the other sources.
  */
-export const generateDesignItems = async (count: number = 32): Promise<PortfolioItem[]> => {
+export const generateDesignItems = async (count: number = 32, signal?: AbortSignal): Promise<PortfolioItem[]> => {
   const positions = generateGridPositions(count);
   let items: PortfolioItem[] = [];
 
   try {
     // Fetch from Cooper Hewitt Design Museum collection
-    const designObjects = await fetchRandomDesignObjects(count);
+    const designObjects = await fetchRandomDesignObjects(count, signal);
 
     console.log(`📊 Received ${designObjects.length} design objects from Cooper Hewitt API`);
 

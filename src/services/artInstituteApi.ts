@@ -5,6 +5,7 @@
  */
 
 import { shuffle } from '../utils/shuffle';
+import { combineSignals, isAbortError } from '../utils/abort';
 
 export interface ArtworkData {
   id: number;
@@ -81,13 +82,13 @@ const isQualityArtwork = (item: ArtworkData): boolean => {
 /**
  * Fetch artwork details in bulk using the ids parameter (single request)
  */
-const fetchArtworksByIds = async (ids: number[]): Promise<ArtworkData[]> => {
+const fetchArtworksByIds = async (ids: number[], signal?: AbortSignal): Promise<ArtworkData[]> => {
   if (ids.length === 0) return [];
 
   try {
     const response = await fetch(
       `${BASE_URL}/artworks?ids=${ids.join(',')}&fields=${ARTWORK_FIELDS}&limit=${ids.length}`,
-      { signal: AbortSignal.timeout(15000) }
+      { signal: combineSignals(15000, signal) }
     );
 
     if (!response.ok) return [];
@@ -95,7 +96,7 @@ const fetchArtworksByIds = async (ids: number[]): Promise<ArtworkData[]> => {
     const data = await response.json();
     return (data.data || []) as ArtworkData[];
   } catch (err) {
-    console.warn('Batch fetch failed:', err);
+    if (!isAbortError(err)) console.warn('Batch fetch failed:', err);
     return [];
   }
 };
@@ -105,7 +106,7 @@ const fetchArtworksByIds = async (ids: number[]): Promise<ArtworkData[]> => {
  * Picks multiple random themes, fetches IDs, then bulk-loads details
  * in 2-3 requests total instead of 64+ individual ones.
  */
-export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkData[]> => {
+export const fetchRandomArtworks = async (count: number = 32, signal?: AbortSignal): Promise<ArtworkData[]> => {
   try {
     console.log(`🎨 Fetching ${count} fresh artworks from Art Institute API...`);
 
@@ -119,7 +120,7 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
       selectedThemes.map(theme =>
         fetch(
           `${BASE_URL}/artworks/search?q=${encodeURIComponent(theme)}&limit=80&fields=id`,
-          { signal: AbortSignal.timeout(10000) }
+          { signal: combineSignals(10000, signal) }
         ).then(r => r.ok ? r.json() : { data: [] })
       )
     );
@@ -154,7 +155,7 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
 
     for (let i = 0; i < idsToFetch.length; i += batchSize) {
       const batchIds = idsToFetch.slice(i, i + batchSize);
-      const batchResults = await fetchArtworksByIds(batchIds);
+      const batchResults = await fetchArtworksByIds(batchIds, signal);
       artworks.push(...batchResults);
 
       const qualityCount = artworks.filter(isQualityArtwork).length;
@@ -188,7 +189,7 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
     return final;
 
   } catch (error) {
-    console.error('❌ API fetch failed:', error);
+    if (!isAbortError(error)) console.error('❌ API fetch failed:', error);
     throw error;
   }
 };

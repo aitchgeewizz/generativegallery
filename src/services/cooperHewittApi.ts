@@ -5,6 +5,7 @@
  */
 
 import { shuffle } from '../utils/shuffle';
+import { combineSignals } from '../utils/abort';
 
 export interface DesignObjectData {
   id: string;
@@ -124,7 +125,8 @@ export const getDesignImageDimensions = (
 const searchDesignObjects = async (
   searchTerm: string,
   page: number = 1,
-  perPage: number = 100
+  perPage: number = 100,
+  signal?: AbortSignal
 ): Promise<DesignObjectData[]> => {
   if (!API_KEY) {
     console.warn('⚠️ Cooper Hewitt API key not configured');
@@ -135,7 +137,8 @@ const searchDesignObjects = async (
     const response = await fetch(
       `${BASE_URL}?method=cooperhewitt.search.objects&access_token=${API_KEY}&query=${encodeURIComponent(
         searchTerm
-      )}&has_images=1&page=${page}&per_page=${perPage}`
+      )}&has_images=1&page=${page}&per_page=${perPage}`,
+      { signal: combineSignals(10000, signal) }
     );
 
     if (!response.ok) return [];
@@ -158,7 +161,7 @@ const searchDesignObjects = async (
  * Focuses on graphic design, posters, and modern design
  * Uses random pagination to get different results each time
  */
-export const fetchRandomDesignObjects = async (count: number = 32): Promise<DesignObjectData[]> => {
+export const fetchRandomDesignObjects = async (count: number = 32, signal?: AbortSignal): Promise<DesignObjectData[]> => {
   if (!API_KEY) {
     console.warn('⚠️ Cooper Hewitt API key not found');
     console.log('📝 Add your API key to .env file:');
@@ -187,7 +190,7 @@ export const fetchRandomDesignObjects = async (count: number = 32): Promise<Desi
       distinctTerms.map(async (term) => {
         const randomPage = Math.floor(Math.random() * 10) + 1;
         try {
-          return await searchDesignObjects(term, randomPage, 100);
+          return await searchDesignObjects(term, randomPage, 100, signal);
         } catch {
           return [] as DesignObjectData[];
         }

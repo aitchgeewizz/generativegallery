@@ -6,6 +6,7 @@
  */
 
 import { shuffle } from '../utils/shuffle';
+import { combineSignals, isAbortError } from '../utils/abort';
 
 export interface HarvardArtObject {
   id: number;
@@ -104,7 +105,7 @@ const PHOTO_THEMES = [
  * Uses search-based approach to find art photography, excluding
  * X-rays, radiographs, and conservation documentation
  */
-export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardArtObject[]> => {
+export const fetchHarvardArtworks = async (count: number = 32, signal?: AbortSignal): Promise<HarvardArtObject[]> => {
   if (!API_KEY) {
     console.warn('Harvard Art Museums API key not found');
     return [];
@@ -129,7 +130,7 @@ export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardA
       // Search for photography with theme keywords
       const response = await fetch(
         `${BASE_URL}/object?apikey=${API_KEY}&size=100&page=${randomPage}&hasimage=1&classification=Photographs&q=${encodeURIComponent(theme)}`,
-        { signal: AbortSignal.timeout(10000) }
+        { signal: combineSignals(10000, signal) }
       );
 
       if (!response.ok) {
@@ -191,7 +192,7 @@ export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardA
 
     return selected;
   } catch (error) {
-    console.error('Harvard Art Museums API failed:', error);
+    if (!isAbortError(error)) console.error('Harvard Art Museums API failed:', error);
     return [];
   }
 };
@@ -214,7 +215,7 @@ const DESIGN_THEMES = [
  * Fetch design works for the mixed wall — same plumbing as the
  * photography fetch, without the Photographs lock.
  */
-export const fetchHarvardDesignWorks = async (count: number = 32): Promise<HarvardArtObject[]> => {
+export const fetchHarvardDesignWorks = async (count: number = 32, signal?: AbortSignal): Promise<HarvardArtObject[]> => {
   if (!API_KEY) {
     console.warn('Harvard Art Museums API key not found');
     return [];
@@ -231,7 +232,7 @@ export const fetchHarvardDesignWorks = async (count: number = 32): Promise<Harva
 
       const response = await fetch(
         `${BASE_URL}/object?apikey=${API_KEY}&size=100&page=${randomPage}&hasimage=1&q=${encodeURIComponent(theme)}`,
-        { signal: AbortSignal.timeout(10000) }
+        { signal: combineSignals(10000, signal) }
       );
       if (!response.ok) {
         if (response.status === 429) break;
@@ -250,7 +251,7 @@ export const fetchHarvardDesignWorks = async (count: number = 32): Promise<Harva
 
     return shuffle(artworks).slice(0, count);
   } catch (error) {
-    console.error('Harvard design fetch failed:', error);
+    if (!isAbortError(error)) console.error('Harvard design fetch failed:', error);
     return [];
   }
 };

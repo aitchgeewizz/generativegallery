@@ -92,14 +92,14 @@ const convertHarvardToPortfolioItem = (
  * Generate Harvard Art Museums items
  * Fetches 32 items from Harvard's collection
  */
-export const generateHarvardItems = async (count: number = 32): Promise<PortfolioItem[]> => {
+export const generateHarvardItems = async (count: number = 32, signal?: AbortSignal): Promise<PortfolioItem[]> => {
   const positions = generateGridPositions(count);
 
   try {
     console.log(`🎨 Generating ${count} Harvard Art Museums items...`);
 
     // Fetch artworks from Harvard API
-    const artworks = await fetchHarvardArtworks(count);
+    const artworks = await fetchHarvardArtworks(count, signal);
 
     if (artworks.length === 0) {
       console.warn('⚠️ No artworks received from Harvard API');
@@ -192,11 +192,11 @@ export const searchHarvardItemsByTag = async (
  * Busch-Reisinger / Bauhaus design thread. Feeds the mixed wall via its
  * own registry entry; the Photography pill stays pure photography.
  */
-export const generateHarvardDesignItems = async (count: number = 32): Promise<PortfolioItem[]> => {
+export const generateHarvardDesignItems = async (count: number = 32, signal?: AbortSignal): Promise<PortfolioItem[]> => {
   const positions = generateGridPositions(count);
 
   try {
-    const artworks = await fetchHarvardDesignWorks(count);
+    const artworks = await fetchHarvardDesignWorks(count, signal);
     if (artworks.length === 0) return [];
 
     const withImages = artworks.filter(a => {

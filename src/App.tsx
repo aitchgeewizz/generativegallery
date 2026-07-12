@@ -6,6 +6,7 @@ import { Intro } from './components/Intro';
 import { AboutModal } from './components/AboutModal';
 import { collections, getCollection } from './collections/registry';
 import { PortfolioItem, ActiveFilter } from './types';
+import { isAbortError } from './utils/abort';
 
 type Theme = 'dark' | 'light';
 const THEME_STORAGE_KEY = 'slowerstranger:theme';
@@ -141,6 +142,10 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
+    // Abort in-flight archive fetches when the effect re-runs (rapid
+    // refresh, source switch) or unmounts — StrictMode's dev double-mount
+    // was silently running the whole fetch storm twice.
+    const controller = new AbortController();
 
     const loadHandful = async () => {
       setItems([]);
@@ -155,9 +160,9 @@ function App() {
           const perSource = await Promise.all(
             collections.map(async (c) => {
               try {
-                return await c.fetchItems(PER_SOURCE);
+                return await c.fetchItems(PER_SOURCE, controller.signal);
               } catch (err) {
-                console.warn(`⚠️ ${c.name} failed:`, err);
+                if (!isAbortError(err)) console.warn(`⚠️ ${c.name} failed:`, err);
                 return [] as PortfolioItem[];
               }
             }),
@@ -167,7 +172,7 @@ function App() {
           const c = getCollection(sourceMode);
           if (!c) throw new Error(`Unknown source: ${sourceMode}`);
           console.log(`🔄 Loading ${HANDFUL} from ${c.name}…`);
-          raw = await c.fetchItems(HANDFUL);
+          raw = await c.fetchItems(HANDFUL, controller.signal);
           raw = preferUnseen(raw, HANDFUL);
         }
 
@@ -196,6 +201,7 @@ function App() {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [refreshSeed, activeFilter.mode, sourceMode]);
 
