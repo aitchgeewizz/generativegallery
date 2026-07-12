@@ -2,47 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-/* SeasonMix font family */
-@font-face {
-  font-family: 'SeasonMix';
-  src: url('/font/SeasonMix-TRIAL-Light.woff2') format('woff2');
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'SeasonMix';
-  src: url('/font/SeasonMix-TRIAL-LightItalic.woff2') format('woff2');
-  font-weight: 300;
-  font-style: italic;
-  font-display: swap;
-}
+/* SeasonMix — one weight only (Regular).
+   Per Hannah's call: the brand carries on a single style. No italic,
+   no Light, no Medium. Smaller download, smaller font licence to
+   buy when the trial ends, and a tighter visual system overall. */
 @font-face {
   font-family: 'SeasonMix';
   src: url('/font/SeasonMix-TRIAL-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'SeasonMix';
-  src: url('/font/SeasonMix-TRIAL-RegularItalic.woff2') format('woff2');
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'SeasonMix';
-  src: url('/font/SeasonMix-TRIAL-Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'SeasonMix';
-  src: url('/font/SeasonMix-TRIAL-MediumItalic.woff2') format('woff2');
-  font-weight: 500;
-  font-style: italic;
   font-display: swap;
 }
 

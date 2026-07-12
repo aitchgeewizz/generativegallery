@@ -62,7 +62,7 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
               className="text-2xl md:text-3xl tracking-tight leading-tight uppercase"
               style={{ color: 'var(--text)' }}
             >
-              Slower. <span className="italic">Stranger.</span>
+              SLOWER:STRANGER
             </h2>
 
             <p
