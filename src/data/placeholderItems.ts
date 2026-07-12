@@ -1,4 +1,4 @@
-import { PortfolioItem, ShapeType } from '../types';
+import { PortfolioItem } from '../types';
 import {
   fetchRandomArtworks,
   searchArtworksByTag,
@@ -8,15 +8,7 @@ import {
   AIC_FALLBACK_SIZE,
 } from '../services/artInstituteApi';
 
-const shapes: ShapeType[] = ['box', 'sphere', 'torus', 'cone', 'cylinder', 'octahedron'];
 
-// Enhanced vibrant color palette inspired by Cash App and modern design
-const colors = [
-  '#00D632', '#00FF87', '#00A3FF', '#0066FF', '#8B5CF6', '#A855F7',
-  '#EC4899', '#FF006E', '#F59E0B', '#FF5C00', '#EF4444', '#FF0040',
-  '#10B981', '#00F5A0', '#14B8A6', '#06B6D4', '#6366F1', '#4F46E5',
-  '#F97316', '#FBBF24',
-];
 
 /**
  * Generate grid layout positions
@@ -120,8 +112,6 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
         id: i,
         x: positions[i].x,
         y: positions[i].y,
-        shape: shapes[Math.floor(Math.random() * shapes.length)],
-        color: colors[Math.floor(Math.random() * colors.length)],
         title: artwork.title,
         description: artwork.artist_display,
         imageUrl: getImageUrl(artwork.image_id, AIC_DETAIL_SIZE),
@@ -182,8 +172,6 @@ export const searchArtworkItemsByTag = async (tag: string, count: number = 32): 
       id: i,
       x: positions[i].x,
       y: positions[i].y,
-      shape: shapes[Math.floor(Math.random() * shapes.length)],
-      color: colors[Math.floor(Math.random() * colors.length)],
       title: artwork.title,
       description: artwork.artist_display,
       imageUrl: getImageUrl(artwork.image_id, AIC_DETAIL_SIZE),

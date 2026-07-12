@@ -3,7 +3,6 @@ import { PortfolioItem } from '../types';
 export interface Tag {
   label: string;
   category: 'maker' | 'style' | 'culture' | 'period';
-  color: string; // Tailwind utility classes
 }
 
 /**
@@ -27,8 +26,6 @@ export interface Tag {
  *
  * All tags share a single neutral colour treatment. No rainbow categories.
  */
-const TAG_CLASSES = 'bg-white/[0.06] text-white/70 hover:bg-white/[0.12] hover:text-white/90 border border-white/[0.08]';
-
 const MAX_TAGS = 4;
 
 /** Strip parenthetical / nationality noise from an artist name. */
@@ -69,7 +66,7 @@ export const extractTags = (item: PortfolioItem): Tag[] => {
       seenKeys.add(pk);
     }
     seenKeys.add(key);
-    tags.push({ label: trimmed, category, color: TAG_CLASSES });
+    tags.push({ label: trimmed, category });
   };
 
   // 1. MAKER — the most useful "follow a thread" affordance.

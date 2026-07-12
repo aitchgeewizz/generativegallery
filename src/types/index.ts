@@ -1,5 +1,3 @@
-export type ShapeType = 'box' | 'sphere' | 'torus' | 'cone' | 'cylinder' | 'octahedron';
-
 export type ViewMode = 'collection' | 'tag-filter';
 
 export interface ActiveFilter {
@@ -15,8 +13,6 @@ export interface PortfolioItem {
   id: number | string;
   x: number;
   y: number;
-  shape: ShapeType;
-  color: string;
   title: string;
   description?: string;
   imageUrl?: string;
@@ -29,7 +25,6 @@ export interface PortfolioItem {
   imageHeight?: number;
   /** Tiny base64 placeholder (AIC provides one) for blur-up while a tile loads. */
   lqip?: string;
-  pixelated?: boolean;
   collectionSource?: string;
   url?: string;
 

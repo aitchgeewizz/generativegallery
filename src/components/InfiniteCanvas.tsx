@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect, useMemo } from 'react';
-import { AnimatePresence, motion, useMotionValueEvent } from 'framer-motion';
+import { AnimatePresence, motion, useMotionValueEvent, useReducedMotion } from 'framer-motion';
 import { PortfolioItem as PortfolioItemType } from '../types';
 import { useSmoothDrag } from '../hooks/useSmoothDrag';
 import { useInfiniteGrid, MIN_ITEMS_TO_LOOP } from '../hooks/useInfiniteGrid';
@@ -44,6 +44,11 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
 
   // Selected artwork for detail view
   const [selectedItem, setSelectedItem] = useState<PortfolioItemType | null>(null);
+
+  // The orientation hint retires itself once the visitor has actually
+  // dragged — after that it is furniture.
+  const [hasDragged, setHasDragged] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   // Loop tile sized to actual items — see computeLoopBounds above.
   const loopBounds = useMemo(() => computeLoopBounds(items), [items]);
@@ -151,6 +156,9 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
         touchAction: 'none', // Prevent default touch behaviors
       }}
       onPointerDown={handlePointerDown}
+      onPointerUp={() => {
+        if (!hasDragged && !isClick()) setHasDragged(true);
+      }}
     >
       {/* Items layer - GPU-accelerated transform driven directly by the
           motion values (no re-render per frame).
@@ -173,13 +181,17 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
         ))}
       </motion.div>
 
-      {/* Info overlay — thesis-aligned: no count claim, no "click-bait", just orientation */}
-      <div
-        className="absolute bottom-6 left-6 text-xs pointer-events-none select-none font-display tracking-wide"
-        style={{ color: 'var(--text-3)' }}
+      {/* Info overlay — thesis-aligned: no count claim, no "click-bait",
+          just orientation. Sits on a theme scrim so it stays legible over
+          artwork, and fades away for good after the first real drag. */}
+      <motion.div
+        className="absolute bottom-6 left-6 text-xs pointer-events-none select-none font-display tracking-wide px-3 py-1.5 rounded-full backdrop-blur-sm"
+        style={{ color: 'var(--text-2)', background: 'var(--scrim-top)' }}
+        animate={{ opacity: hasDragged ? 0 : 1 }}
+        transition={{ duration: reduceMotion ? 0 : 1.2, ease: 'easeOut' }}
       >
         <p>Drag to look around &middot; Click a piece to read about it</p>
-      </div>
+      </motion.div>
 
       {/* Artwork Detail View — wrapped in AnimatePresence so the
           exit animation actually fires when selectedItem becomes null.

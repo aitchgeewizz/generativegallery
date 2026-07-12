@@ -5,6 +5,8 @@
  * Rate Limit: 2500 requests/day
  */
 
+import { shuffle } from '../utils/shuffle';
+
 export interface HarvardArtObject {
   id: number;
   objectid: number;
@@ -116,7 +118,7 @@ export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardA
     let attempts = 0;
 
     // Pick random themes for variety
-    const shuffledThemes = [...PHOTO_THEMES].sort(() => Math.random() - 0.5);
+    const shuffledThemes = shuffle(PHOTO_THEMES);
 
     while (artworks.length < count && attempts < maxAttempts) {
       const theme = shuffledThemes[attempts % shuffledThemes.length];
@@ -182,7 +184,7 @@ export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardA
     }
 
     // Shuffle and take requested count
-    const shuffled = artworks.sort(() => Math.random() - 0.5);
+    const shuffled = shuffle(artworks);
     const selected = shuffled.slice(0, count);
 
     console.log(`Loaded ${selected.length} Harvard photographs`);

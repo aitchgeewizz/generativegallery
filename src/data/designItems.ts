@@ -1,4 +1,4 @@
-import { PortfolioItem, ShapeType } from '../types';
+import { PortfolioItem } from '../types';
 import {
   fetchRandomDesignObjects,
   getDesignImageUrl,
@@ -7,16 +7,7 @@ import {
   searchDesignObjectsByTag,
 } from '../services/cooperHewittApi';
 
-const shapes: ShapeType[] = ['box', 'sphere', 'torus', 'cone', 'cylinder', 'octahedron'];
 
-// Modern design color palette - inspired by Bauhaus, Swiss Design, and Contemporary
-const designColors = [
-  '#FF0000', '#0000FF', '#FFFF00', // Primary Bauhaus colors
-  '#000000', '#FFFFFF', '#808080', // Monochrome
-  '#FF6B35', '#004E89', '#F7B267', // Contemporary
-  '#00D1FF', '#FF006E', '#FFBE0B', // Vibrant modern
-  '#2EC4B6', '#E71D36', '#FF9F1C', // Bold modern
-];
 
 /**
  * Generate grid layout positions (8x4 grid = 32 items)
@@ -99,8 +90,6 @@ export const generateDesignItems = async (count: number = 32): Promise<Portfolio
         id: i,
         x: positions[i].x,
         y: positions[i].y,
-        shape: shapes[Math.floor(Math.random() * shapes.length)],
-        color: designColors[Math.floor(Math.random() * designColors.length)],
         title: design.title || 'Untitled',
         description: `${creator}${design.date ? ` (${design.date})` : ''}`,
         imageUrl: imageUrl || undefined,
@@ -195,8 +184,6 @@ export const searchDesignItemsByTag = async (tag: string, count: number = 32): P
         id: i,
         x: positions[i].x,
         y: positions[i].y,
-        shape: shapes[Math.floor(Math.random() * shapes.length)],
-        color: designColors[Math.floor(Math.random() * designColors.length)],
         title: design.title || 'Untitled',
         description: `${creator}${design.date ? ` (${design.date})` : ''}`,
         imageUrl: imageUrl || undefined,

@@ -4,6 +4,8 @@
  * https://api.artic.edu/docs/
  */
 
+import { shuffle } from '../utils/shuffle';
+
 export interface ArtworkData {
   id: number;
   title: string;
@@ -104,7 +106,7 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
     console.log(`🎨 Fetching ${count} fresh artworks from Art Institute API...`);
 
     // Pick 3 random themes for variety
-    const shuffledThemes = [...CURATED_THEMES].sort(() => Math.random() - 0.5);
+    const shuffledThemes = shuffle(CURATED_THEMES);
     const selectedThemes = shuffledThemes.slice(0, 3);
     console.log(`🎯 Themes: ${selectedThemes.join(', ')}`);
 
@@ -137,7 +139,7 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
     // + title + artist) typically passes ~30-40% of fetched details,
     // and a small count (e.g. 10) without a floor would only fetch 30
     // IDs → ~3 quality items, which is far too sparse.
-    const allIds = [...idSet].sort(() => Math.random() - 0.5);
+    const allIds = shuffle([...idSet]);
     const idsToFetch = allIds.slice(0, Math.max(count * 8, 60));
 
     console.log(`📦 Found ${idSet.size} unique IDs, fetching ${idsToFetch.length} details in bulk...`);

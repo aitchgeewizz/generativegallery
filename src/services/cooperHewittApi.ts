@@ -4,6 +4,8 @@
  * https://collection.cooperhewitt.org/api/
  */
 
+import { shuffle } from '../utils/shuffle';
+
 export interface DesignObjectData {
   id: string;
   title: string;
@@ -205,7 +207,7 @@ export const fetchRandomDesignObjects = async (count: number = 32): Promise<Desi
 
     // Shuffle and limit to requested count so each load surfaces a different
     // ordering of whatever pool we built.
-    const shuffled = results.sort(() => Math.random() - 0.5);
+    const shuffled = shuffle(results);
     const finalResults = shuffled.slice(0, count);
 
     console.log(`✅ Successfully loaded ${finalResults.length} design objects from Cooper Hewitt (pool of ${results.length})`);
@@ -291,28 +293,3 @@ export const searchDesignObjectsByTag = async (
     return [];
   }
 };
-
-/**
- * Curated modern design and graphic design collection
- * High-quality fallback when API key is not available
- */
-export const curatedDesignCollection = [
-  {
-    id: 'design-1',
-    title: 'Bauhaus Exhibition Poster',
-    description: 'Modernist poster design from the Bauhaus school',
-    medium: 'Lithograph on paper',
-    date: '1923',
-    designer: 'László Moholy-Nagy',
-    imageUrl: 'https://images.metmuseum.org/CRDImages/md/original/DT5337.jpg',
-  },
-  {
-    id: 'design-2',
-    title: 'Swiss Style Typography Poster',
-    description: 'International Typographic Style poster',
-    medium: 'Offset lithograph',
-    date: '1958',
-    designer: 'Josef Müller-Brockmann',
-    imageUrl: 'https://images.metmuseum.org/CRDImages/md/original/DT5338.jpg',
-  },
-];

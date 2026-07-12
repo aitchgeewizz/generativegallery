@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 /**
  * First-paint intro. Per Hannah's redesign:
@@ -18,9 +18,12 @@ import { motion } from 'framer-motion';
 const LOADING_TEXT = 'Loading the wall';
 
 export const Intro = () => {
+  // prefers-reduced-motion: the per-character pulse becomes static text.
+  const reduceMotion = useReducedMotion();
+
   return (
     <motion.section
-      className="fixed inset-0 z-50 flex items-center justify-center gallery-grain"
+      className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: 'var(--bg)' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -50,25 +53,27 @@ export const Intro = () => {
           {/* Character-by-character wave. Each char animates opacity
               from low→high→low on a stagger so the word reads as a
               left-to-right pulse, repeating. */}
-          {LOADING_TEXT.split('').map((char, i) =>
-            char === ' ' ? (
-              <span key={i}>&nbsp;</span>
-            ) : (
-              <motion.span
-                key={i}
-                animate={{ opacity: [0.18, 1, 0.18] }}
-                transition={{
-                  duration: 2.2,
-                  delay: i * 0.08,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-                style={{ display: 'inline-block' }}
-              >
-                {char}
-              </motion.span>
-            ),
-          )}
+          {reduceMotion
+            ? LOADING_TEXT
+            : LOADING_TEXT.split('').map((char, i) =>
+                char === ' ' ? (
+                  <span key={i}>&nbsp;</span>
+                ) : (
+                  <motion.span
+                    key={i}
+                    animate={{ opacity: [0.18, 1, 0.18] }}
+                    transition={{
+                      duration: 2.2,
+                      delay: i * 0.08,
+                      repeat: Infinity,
+                      ease: 'easeInOut',
+                    }}
+                    style={{ display: 'inline-block' }}
+                  >
+                    {char}
+                  </motion.span>
+                ),
+              )}
         </motion.p>
       </div>
     </motion.section>

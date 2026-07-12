@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { PortfolioItem } from '../types';
 import { extractTags, extractArtistName } from '../utils/tagExtractor';
@@ -57,6 +57,8 @@ export const ArtworkDetail = ({
   // blurred underneath — the blur-up keeps the stage from going blank.
   const [stageSrc, setStageSrc] = useState(item?.imageUrl);
   const [stageLoaded, setStageLoaded] = useState(false);
+  // Respect prefers-reduced-motion: prev/next slides become plain fades.
+  const reduceMotion = useReducedMotion();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   // Hide the right panel for an image-only "full view". On desktop:
   // toggled by an icon or F key. On mobile: toggled by tapping the
@@ -261,7 +263,7 @@ export const ArtworkDetail = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 0.99 }}
       transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
-      className="fixed inset-0 z-50 gallery-grain"
+      className="fixed inset-0 z-50"
       style={{ background: 'var(--bg)' }}
     >
         {/* Image Stage. On desktop (>=md): between left rail (~60px)
@@ -279,7 +281,7 @@ export const ArtworkDetail = ({
             isMobile
               ? panelHidden
                 ? { top: 0, left: 0, right: 0, bottom: 0 }
-                : { top: 0, left: 0, right: 0, bottom: '55vh' }
+                : { top: 0, left: 0, right: 0, bottom: '55dvh' }
               : { top: 0, left: 56, bottom: 0, right: panelHidden ? 0 : PANEL_W }
           }
           onWheel={handleWheel}
@@ -325,9 +327,9 @@ export const ArtworkDetail = ({
             {item.imageUrl && !mainImageError ? (
               <motion.div
                 key={item.id}
-                initial={{ opacity: 0, x: direction * 40 }}
+                initial={{ opacity: 0, x: reduceMotion ? 0 : direction * 40 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: direction * -40 }}
+                exit={{ opacity: 0, x: reduceMotion ? 0 : direction * -40 }}
                 transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
                 onClick={(e) => {
                   // Mobile: a clean tap on the image (not a swipe)
@@ -608,7 +610,7 @@ export const ArtworkDetail = ({
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  top: '45vh',
+                  top: '45dvh',
                   background: 'var(--bg)',
                   borderTop: '1px solid var(--border)',
                   pointerEvents: 'auto',
@@ -801,7 +803,7 @@ export const ArtworkDetail = ({
               {/* More by Artist */}
               {artistName && (
                 <ExpandableSection
-                  title={`More by ${artistName.split(' ').slice(-1)[0]}`}
+                  title={`More by ${artistName}`}
                   open={expandedSections.has('related')}
                   onToggle={() => toggleSection('related')}
                 >
@@ -949,10 +951,10 @@ const ExpandableSection = ({
   <div>
     <button
       onClick={onToggle}
-      className="w-full flex items-center justify-between py-3.5 text-left group"
+      className="w-full flex items-center justify-between gap-3 py-3.5 text-left group"
     >
       <span
-        className="text-[11px] uppercase tracking-[0.18em] font-display transition-colors"
+        className="text-[11px] uppercase tracking-[0.18em] font-display transition-colors truncate min-w-0"
         style={{ color: 'var(--text-2)' }}
       >
         {title}

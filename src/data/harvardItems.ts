@@ -1,4 +1,4 @@
-import { PortfolioItem, ShapeType } from '../types';
+import { PortfolioItem } from '../types';
 import {
   fetchHarvardArtworks,
   searchHarvardByTag,
@@ -9,15 +9,7 @@ import {
   HARVARD_DETAIL_SIZE,
 } from '../services/harvardMuseumsApi';
 
-const shapes: ShapeType[] = ['box', 'sphere', 'torus', 'cone', 'cylinder', 'octahedron'];
 
-// Color palette
-const colors = [
-  '#00D632', '#00FF87', '#00A3FF', '#0066FF', '#8B5CF6', '#A855F7',
-  '#EC4899', '#FF006E', '#F59E0B', '#FF5C00', '#EF4444', '#FF0040',
-  '#10B981', '#00F5A0', '#14B8A6', '#06B6D4', '#6366F1', '#4F46E5',
-  '#F97316', '#FBBF24',
-];
 
 /**
  * Generate grid layout positions
@@ -59,8 +51,6 @@ const convertHarvardToPortfolioItem = (
     id: index,
     x: positions[index].x,
     y: positions[index].y,
-    shape: shapes[Math.floor(Math.random() * shapes.length)],
-    color: colors[Math.floor(Math.random() * colors.length)],
     title: artwork.title,
     description: formatHarvardArtwork(artwork),
     imageUrl: imageUrl || undefined,

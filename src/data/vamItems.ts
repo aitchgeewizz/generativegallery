@@ -1,4 +1,4 @@
-import { PortfolioItem, ShapeType } from '../types';
+import { PortfolioItem } from '../types';
 import {
   fetchRandomVamObjects,
   searchVamObjectsByTag,
@@ -8,14 +8,7 @@ import {
   VamObjectRecord,
 } from '../services/vamApi';
 
-const shapes: ShapeType[] = ['box', 'sphere', 'torus', 'cone', 'cylinder', 'octahedron'];
 
-// Print-room palette — inks and papers rather than screens
-const vamColors = [
-  '#B0413E', '#1F3A5F', '#C9A227', // poster inks
-  '#2E4A3D', '#7A3B69', '#D46A36', // wallpaper grounds
-  '#1C1C1C', '#EFE6D5', '#6E7F80', // letterpress black, stock, slate
-];
 
 /**
  * Generate grid layout positions (8 per row)
@@ -104,8 +97,6 @@ const convertVamToPortfolioItem = (
     id: index,
     x: positions[index].x,
     y: positions[index].y,
-    shape: shapes[Math.floor(Math.random() * shapes.length)],
-    color: vamColors[Math.floor(Math.random() * vamColors.length)],
     title,
     description: `${primaryMaker}${date ? ` (${date})` : ''}`,
     imageUrl: imageUrl || undefined,

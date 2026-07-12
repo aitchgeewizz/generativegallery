@@ -9,6 +9,8 @@
  * detail hydration below batches its requests instead of bursting.
  */
 
+import { shuffle } from '../utils/shuffle';
+
 const BASE_URL = 'https://api.vam.ac.uk/v2';
 const IIIF_BASE = 'https://framemark.vam.ac.uk/collections';
 
@@ -218,9 +220,7 @@ export const fetchRandomVamObjects = async (count: number = 24): Promise<VamObje
   try {
     console.log(`🎨 Fetching ${count} objects from the V&A…`);
 
-    const distinctTerms = [...ALL_TERMS]
-      .sort(() => Math.random() - 0.5)
-      .slice(0, TERMS_PER_FETCH);
+    const distinctTerms = shuffle(ALL_TERMS).slice(0, TERMS_PER_FETCH);
 
     const pages = await Promise.all(
       distinctTerms.map((term) => {
@@ -239,7 +239,7 @@ export const fetchRandomVamObjects = async (count: number = 24): Promise<VamObje
       }
     }
 
-    const chosen = pool.sort(() => Math.random() - 0.5).slice(0, count);
+    const chosen = shuffle(pool).slice(0, count);
     const bundles = await hydrateVamRecords(chosen);
 
     console.log(`✅ Loaded ${bundles.length} V&A objects (pool of ${pool.length})`);
