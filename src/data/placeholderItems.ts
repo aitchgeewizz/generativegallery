@@ -1,5 +1,12 @@
 import { PortfolioItem, ShapeType } from '../types';
-import { fetchRandomArtworks, searchArtworksByTag, getImageUrl } from '../services/artInstituteApi';
+import {
+  fetchRandomArtworks,
+  searchArtworksByTag,
+  getImageUrl,
+  AIC_TILE_SIZE,
+  AIC_DETAIL_SIZE,
+  AIC_FALLBACK_SIZE,
+} from '../services/artInstituteApi';
 
 const shapes: ShapeType[] = ['box', 'sphere', 'torus', 'cone', 'cylinder', 'octahedron'];
 
@@ -109,8 +116,6 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
 
     // Convert API artworks to items
     const items = withImages.map((artwork, i) => {
-      const imageUrl = getImageUrl(artwork.image_id, 843);
-
       return {
         id: i,
         x: positions[i].x,
@@ -119,7 +124,12 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
         color: colors[Math.floor(Math.random() * colors.length)],
         title: artwork.title,
         description: artwork.artist_display,
-        imageUrl: imageUrl,
+        imageUrl: getImageUrl(artwork.image_id, AIC_DETAIL_SIZE),
+        thumbnailUrl: getImageUrl(artwork.image_id, AIC_TILE_SIZE),
+        fallbackUrl: getImageUrl(artwork.image_id, AIC_FALLBACK_SIZE),
+        lqip: artwork.thumbnail?.lqip,
+        imageWidth: artwork.thumbnail?.width,
+        imageHeight: artwork.thumbnail?.height,
         collectionSource: 'Art Institute of Chicago',
         url: `https://www.artic.edu/artworks/${artwork.id}`,
         // Rich artwork metadata
@@ -176,7 +186,12 @@ export const searchArtworkItemsByTag = async (tag: string, count: number = 32): 
       color: colors[Math.floor(Math.random() * colors.length)],
       title: artwork.title,
       description: artwork.artist_display,
-      imageUrl: getImageUrl(artwork.image_id, 843),
+      imageUrl: getImageUrl(artwork.image_id, AIC_DETAIL_SIZE),
+      thumbnailUrl: getImageUrl(artwork.image_id, AIC_TILE_SIZE),
+      fallbackUrl: getImageUrl(artwork.image_id, AIC_FALLBACK_SIZE),
+      lqip: artwork.thumbnail?.lqip,
+      imageWidth: artwork.thumbnail?.width,
+      imageHeight: artwork.thumbnail?.height,
       collectionSource: 'Art Institute of Chicago',
       shortDescription: artwork.short_description || artwork.description,
       medium: artwork.medium_display,

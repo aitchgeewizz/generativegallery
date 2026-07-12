@@ -1,5 +1,11 @@
 import { PortfolioItem, ShapeType } from '../types';
-import { fetchRandomDesignObjects, getDesignImageUrl, searchDesignObjectsByTag } from '../services/cooperHewittApi';
+import {
+  fetchRandomDesignObjects,
+  getDesignImageUrl,
+  getDesignThumbnailUrl,
+  getDesignImageDimensions,
+  searchDesignObjectsByTag,
+} from '../services/cooperHewittApi';
 
 const shapes: ShapeType[] = ['box', 'sphere', 'torus', 'cone', 'cylinder', 'octahedron'];
 
@@ -98,6 +104,9 @@ export const generateDesignItems = async (count: number = 32): Promise<Portfolio
         title: design.title || 'Untitled',
         description: `${creator}${design.date ? ` (${design.date})` : ''}`,
         imageUrl: imageUrl || undefined,
+        thumbnailUrl: getDesignThumbnailUrl(design) || undefined,
+        imageWidth: getDesignImageDimensions(design).width,
+        imageHeight: getDesignImageDimensions(design).height,
         collectionSource: 'Cooper Hewitt Smithsonian Design Museum',
 
         // Rich metadata from Cooper Hewitt
@@ -191,6 +200,9 @@ export const searchDesignItemsByTag = async (tag: string, count: number = 32): P
         title: design.title || 'Untitled',
         description: `${creator}${design.date ? ` (${design.date})` : ''}`,
         imageUrl: imageUrl || undefined,
+        thumbnailUrl: getDesignThumbnailUrl(design) || undefined,
+        imageWidth: getDesignImageDimensions(design).width,
+        imageHeight: getDesignImageDimensions(design).height,
         collectionSource: 'Cooper Hewitt Smithsonian Design Museum',
         medium: design.medium,
         dimensions: design.dimensions,

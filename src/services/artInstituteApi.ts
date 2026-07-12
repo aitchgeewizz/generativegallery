@@ -25,19 +25,33 @@ export interface ArtworkData {
     s: number;
     l: number;
   };
+  thumbnail?: {
+    lqip?: string;
+    width?: number;
+    height?: number;
+    alt_text?: string;
+  };
 }
 
 const BASE_URL = 'https://api.artic.edu/api/v1';
 const IMAGE_BASE_URL = 'https://www.artic.edu/iiif/2';
 
-const ARTWORK_FIELDS = 'id,title,artist_display,date_display,image_id,is_public_domain,description,short_description,medium_display,dimensions,credit_line,style_titles,classification_titles,subject_titles,theme_titles,color,is_boosted';
+const ARTWORK_FIELDS = 'id,title,artist_display,date_display,image_id,is_public_domain,description,short_description,medium_display,dimensions,credit_line,style_titles,classification_titles,subject_titles,theme_titles,color,is_boosted,thumbnail';
 
 /**
- * Get image URL from image_id
+ * Get image URL from image_id.
+ *
+ * Verified sizes (July 2026): 400 ≈ 44KB (wall tile), 843 ≈ 193KB (the
+ * size AIC's docs bless — our graceful fallback), 1686 ≈ 830KB (detail
+ * stage; sharp on retina where 843 upscales ~1.4x).
  */
 export const getImageUrl = (imageId: string, size: number = 843): string => {
   return `${IMAGE_BASE_URL}/${imageId}/full/${size},/0/default.jpg`;
 };
+
+export const AIC_TILE_SIZE = 400;
+export const AIC_DETAIL_SIZE = 1686;
+export const AIC_FALLBACK_SIZE = 843;
 
 /**
  * Curated themes for diverse, vibrant collections

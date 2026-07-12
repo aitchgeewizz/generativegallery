@@ -5,6 +5,8 @@ import {
   getHarvardImageUrl,
   formatHarvardArtwork,
   HarvardArtObject,
+  HARVARD_TILE_SIZE,
+  HARVARD_DETAIL_SIZE,
 } from '../services/harvardMuseumsApi';
 
 const shapes: ShapeType[] = ['box', 'sphere', 'torus', 'cone', 'cylinder', 'octahedron'];
@@ -49,7 +51,9 @@ const convertHarvardToPortfolioItem = (
   index: number,
   positions: Array<{ x: number; y: number }>
 ): PortfolioItem => {
-  const imageUrl = getHarvardImageUrl(artwork, 843);
+  const imageUrl = getHarvardImageUrl(artwork, HARVARD_DETAIL_SIZE);
+  const thumbnailUrl = getHarvardImageUrl(artwork, HARVARD_TILE_SIZE);
+  const sourceImage = artwork.images?.[0];
 
   return {
     id: index,
@@ -60,6 +64,9 @@ const convertHarvardToPortfolioItem = (
     title: artwork.title,
     description: formatHarvardArtwork(artwork),
     imageUrl: imageUrl || undefined,
+    thumbnailUrl: thumbnailUrl || undefined,
+    imageWidth: sourceImage?.width,
+    imageHeight: sourceImage?.height,
     collectionSource: 'Harvard Photography',
     url: artwork.url,
 

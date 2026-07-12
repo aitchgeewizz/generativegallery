@@ -52,15 +52,24 @@ export interface HarvardArtObject {
 const BASE_URL = 'https://api.harvardartmuseums.org';
 const API_KEY = import.meta.env.VITE_HARVARD_KEY;
 
+export const HARVARD_TILE_SIZE = 400;
+export const HARVARD_DETAIL_SIZE = 1600;
+
 /**
- * Get IIIF image URL at specified size
- * Harvard uses IIIF (International Image Interoperability Framework)
- * Format: {baseuri}/full/{size},/0/default.jpg
+ * Get an image URL at the requested pixel width.
+ *
+ * `primaryimageurl` points at Harvard's IDS delivery service (via the
+ * nrs.harvard.edu resolver), which honours a `?width=` query param even
+ * through the redirect — verified July 2026, CORS-open. Without it the
+ * service returns originals up to several thousand pixels, which is
+ * multi-MB waste for a 200px wall tile. IIIF fallback takes the same
+ * size via the standard path segment.
  */
 export const getHarvardImageUrl = (artwork: HarvardArtObject, size: number = 843): string | null => {
   // Try primary image URL first
   if (artwork.primaryimageurl) {
-    return artwork.primaryimageurl;
+    const sep = artwork.primaryimageurl.includes('?') ? '&' : '?';
+    return `${artwork.primaryimageurl}${sep}width=${size}`;
   }
 
   // Try IIIF images

@@ -24,9 +24,20 @@
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-    <link rel="preconnect" href="https://www.artic.edu" />
-    <link rel="preconnect" href="https://collection.cooperhewitt.org" />
+    <!-- The brand face paints first or the wordmark flashes system-sans. -->
+    <link rel="preload" href="/font/SeasonMix-TRIAL-Regular.woff2" as="font" type="font/woff2" crossorigin />
+
+    <!-- Preconnect the JSON APIs hit on first load; dns-prefetch the image
+         CDNs that follow a beat later. -->
+    <link rel="preconnect" href="https://api.artic.edu" />
+    <link rel="preconnect" href="https://api.collection.cooperhewitt.org" />
     <link rel="preconnect" href="https://api.harvardartmuseums.org" />
+    <link rel="preconnect" href="https://api.vam.ac.uk" />
+    <link rel="dns-prefetch" href="https://www.artic.edu" />
+    <link rel="dns-prefetch" href="https://images.collection.cooperhewitt.org" />
+    <link rel="dns-prefetch" href="https://nrs.harvard.edu" />
+    <link rel="dns-prefetch" href="https://ids.lib.harvard.edu" />
+    <link rel="dns-prefetch" href="https://framemark.vam.ac.uk" />
 
     <style>
       /* Inline above-the-fold styles so the noscript fallback and the

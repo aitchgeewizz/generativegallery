@@ -97,6 +97,26 @@ export const getDesignImageUrl = (imageData: DesignObjectData): string | null =>
 };
 
 /**
+ * Smaller variant for wall tiles: z (640) covers a 200px tile on retina;
+ * b (1024, the legacy API's ceiling) stays reserved for the detail stage.
+ */
+export const getDesignThumbnailUrl = (imageData: DesignObjectData): string | null => {
+  if (!imageData.images || imageData.images.length === 0) return null;
+
+  const image = imageData.images[0];
+  return image.z?.url || image.n?.url || image.b?.url || image.sq?.url || null;
+};
+
+/** Native dimensions of the largest available derivative, when reported. */
+export const getDesignImageDimensions = (
+  imageData: DesignObjectData,
+): { width?: number; height?: number } => {
+  const image = imageData.images?.[0];
+  const largest = image?.b || image?.z || image?.n;
+  return { width: largest?.width, height: largest?.height };
+};
+
+/**
  * Search Cooper Hewitt collection for design objects
  */
 const searchDesignObjects = async (

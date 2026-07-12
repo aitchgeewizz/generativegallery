@@ -23,6 +23,12 @@ export interface PortfolioItem {
   /** Smaller variant for the 200px wall tile; imageUrl serves the detail stage. */
   thumbnailUrl?: string;
   fallbackUrl?: string;
+  /** Native pixel dimensions of the source image, when the API reports them.
+      Feeds aspect-ratio-true layout work. */
+  imageWidth?: number;
+  imageHeight?: number;
+  /** Tiny base64 placeholder (AIC provides one) for blur-up while a tile loads. */
+  lqip?: string;
   pixelated?: boolean;
   collectionSource?: string;
   url?: string;

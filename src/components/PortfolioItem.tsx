@@ -48,7 +48,23 @@ export const PortfolioItem = memo(function PortfolioItem({ item, onClick }: Port
           style={{ background: 'var(--bg-elev)' }}
         >
           {!imageLoaded && !imageError && (
-            <div className="absolute inset-0" style={{ background: 'var(--bg-elev)' }} />
+            <div
+              className="absolute inset-0"
+              style={{
+                background: 'var(--bg-elev)',
+                // AIC ships a tiny base64 placeholder — a soft wash of the
+                // artwork's own colour beats a flat grey while the tile loads.
+                ...(item.lqip
+                  ? {
+                      backgroundImage: `url(${item.lqip})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      filter: 'blur(10px)',
+                      transform: 'scale(1.1)',
+                    }
+                  : {}),
+              }}
+            />
           )}
           {!imageError && (
             <img
