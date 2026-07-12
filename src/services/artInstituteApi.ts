@@ -65,6 +65,10 @@ const CURATED_THEMES = [
   'Photography', 'sculpture', 'paintings', 'Japanese prints',
   'American Art', 'European Painting', 'African Art', 'Asian Art',
   'Essentials', 'masterpieces', 'architecture',
+  // Design-artifact threads — AIC's prints, posters and ornament
+  // holdings are deep and were previously never surfaced.
+  'poster', 'ornament', 'Vienna Secession', 'Arts and Crafts movement',
+  'trade card', 'wood engraving', 'lithograph',
 ];
 
 const isQualityArtwork = (item: ArtworkData): boolean => {
@@ -165,25 +169,13 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
     const filtered = artworks.filter(isQualityArtwork);
     console.log(`✅ After filtering: ${filtered.length} quality artworks`);
 
-    // Sort by quality — prioritize paintings/sculptures, then boosted, then vibrant
-    const classificationScore = (item: ArtworkData): number => {
-      const cls = item.classification_titles?.join(' ').toLowerCase() || '';
-      if (cls.includes('painting')) return 3;
-      if (cls.includes('sculpture')) return 2;
-      if (cls.includes('photograph')) return 1;
-      if (cls.includes('print') || cls.includes('drawing') || cls.includes('textile')) return -1;
-      return 0;
-    };
-
+    // Light ranking only: boosted works float, everything else keeps its
+    // shuffled order. The old score actively buried prints, drawings and
+    // textiles — for a design-artifact wall those ARE the good stuff.
     const sorted = filtered.sort((a, b) => {
-      // Paintings/sculptures first
-      const clsDiff = classificationScore(b) - classificationScore(a);
-      if (clsDiff !== 0) return clsDiff;
-      // Then boosted
       if ((a as any).is_boosted && !(b as any).is_boosted) return -1;
       if (!(a as any).is_boosted && (b as any).is_boosted) return 1;
-      // Then saturation
-      return (b.color?.s || 0) - (a.color?.s || 0);
+      return 0;
     });
 
     const final = sorted.slice(0, count);

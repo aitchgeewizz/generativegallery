@@ -1,6 +1,7 @@
 import { PortfolioItem } from '../types';
 import {
   fetchHarvardArtworks,
+  fetchHarvardDesignWorks,
   searchHarvardByTag,
   getHarvardImageUrl,
   formatHarvardArtwork,
@@ -41,7 +42,8 @@ const generateGridPositions = (count: number) => {
 const convertHarvardToPortfolioItem = (
   artwork: HarvardArtObject,
   index: number,
-  positions: Array<{ x: number; y: number }>
+  positions: Array<{ x: number; y: number }>,
+  sourceLabel: string = 'Harvard Photography'
 ): PortfolioItem => {
   const imageUrl = getHarvardImageUrl(artwork, HARVARD_DETAIL_SIZE);
   const thumbnailUrl = getHarvardImageUrl(artwork, HARVARD_TILE_SIZE);
@@ -57,7 +59,7 @@ const convertHarvardToPortfolioItem = (
     thumbnailUrl: thumbnailUrl || undefined,
     imageWidth: sourceImage?.width,
     imageHeight: sourceImage?.height,
-    collectionSource: 'Harvard Photography',
+    collectionSource: sourceLabel,
     url: artwork.url,
 
     // Rich metadata
@@ -182,6 +184,50 @@ export const searchHarvardItemsByTag = async (
     return items;
   } catch (error) {
     console.error('❌ Harvard tag search failed:', error);
+    return [];
+  }
+};
+
+/**
+ * Busch-Reisinger / Bauhaus design thread. Feeds the mixed wall via its
+ * own registry entry; the Photography pill stays pure photography.
+ */
+export const generateHarvardDesignItems = async (count: number = 32): Promise<PortfolioItem[]> => {
+  const positions = generateGridPositions(count);
+
+  try {
+    const artworks = await fetchHarvardDesignWorks(count);
+    if (artworks.length === 0) return [];
+
+    const withImages = artworks.filter(a => {
+      const url = getHarvardImageUrl(a, 843);
+      return typeof url === 'string' && url.length > 0;
+    });
+
+    return withImages.map((artwork, i) =>
+      convertHarvardToPortfolioItem(artwork, i, positions, 'Harvard Art Museums, Busch-Reisinger')
+    );
+  } catch (error) {
+    console.error('Failed to generate Harvard design items:', error);
+    return [];
+  }
+};
+
+export const searchHarvardDesignItemsByTag = async (
+  tag: string,
+  count: number = 32
+): Promise<PortfolioItem[]> => {
+  try {
+    // classification=null searches the whole collection, not just Photographs.
+    const artworks = await searchHarvardByTag(tag, count, null);
+    if (artworks.length === 0) return [];
+
+    const positions = generateGridPositions(artworks.length);
+    return artworks.map((artwork, i) =>
+      convertHarvardToPortfolioItem(artwork, i, positions, 'Harvard Art Museums, Busch-Reisinger')
+    );
+  } catch (error) {
+    console.error('Harvard design tag search failed:', error);
     return [];
   }
 };

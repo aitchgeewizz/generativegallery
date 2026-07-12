@@ -2,6 +2,7 @@ import { CollectionDefinition } from './types';
 import { artInstituteCollection } from './artInstitute';
 import { cooperHewittCollection } from './cooperHewitt';
 import { harvardCollection } from './harvard';
+import { harvardDesignCollection } from './harvardDesign';
 import { vamCollection } from './vam';
 
 /**
@@ -23,6 +24,7 @@ export const collections: CollectionDefinition[] = [
   artInstituteCollection,
   cooperHewittCollection,
   harvardCollection,
+  harvardDesignCollection,
   vamCollection,
 ];
 

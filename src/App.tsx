@@ -67,6 +67,45 @@ const interleave = <T,>(lists: T[][]): T[] => {
 
 const SOURCE_STORAGE_KEY = 'slowerstranger:sourceMode';
 
+/**
+ * Session variety: remember which works have already hung on the wall
+ * this visit, and prefer fresh ones on refresh. sessionStorage, not
+ * localStorage — tomorrow's visit starts clean, which suits a daily
+ * ritual better than a permanent ledger.
+ */
+const SEEN_KEY = 'slowerstranger:seenThisSession';
+const SEEN_CAP = 500;
+
+const seenKey = (item: PortfolioItem): string =>
+  `${item.collectionSource}:${item.url || item.title}`;
+
+const loadSeen = (): Set<string> => {
+  try {
+    return new Set<string>(JSON.parse(sessionStorage.getItem(SEEN_KEY) || '[]'));
+  } catch {
+    return new Set();
+  }
+};
+
+const rememberSeen = (items: PortfolioItem[]) => {
+  try {
+    const seen = loadSeen();
+    for (const it of items) seen.add(seenKey(it));
+    sessionStorage.setItem(SEEN_KEY, JSON.stringify([...seen].slice(-SEEN_CAP)));
+  } catch {
+    // Storage unavailable — variety degrades gracefully.
+  }
+};
+
+/** Prefer works not yet seen this session; back-fill with repeats only
+    when the fetched pool runs short. */
+const preferUnseen = (items: PortfolioItem[], target: number): PortfolioItem[] => {
+  const seen = loadSeen();
+  const unseen = items.filter((i) => !seen.has(seenKey(i)));
+  const repeats = items.filter((i) => seen.has(seenKey(i)));
+  return [...unseen, ...repeats].slice(0, target);
+};
+
 function App() {
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,13 +162,13 @@ function App() {
               }
             }),
           );
-          raw = interleave(perSource).slice(0, HANDFUL);
+          raw = preferUnseen(interleave(perSource), HANDFUL);
         } else {
           const c = getCollection(sourceMode);
           if (!c) throw new Error(`Unknown source: ${sourceMode}`);
           console.log(`🔄 Loading ${HANDFUL} from ${c.name}…`);
           raw = await c.fetchItems(HANDFUL);
-          raw = raw.slice(0, HANDFUL);
+          raw = preferUnseen(raw, HANDFUL);
         }
 
         if (cancelled) return;
@@ -139,6 +178,7 @@ function App() {
         }
 
         const placed = layoutCentered(raw);
+        rememberSeen(placed);
         console.log(`✅ Loaded ${placed.length} items (${sourceMode})`);
         setItems(placed);
         setLoading(false);
