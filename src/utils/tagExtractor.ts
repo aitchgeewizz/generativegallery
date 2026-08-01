@@ -2,7 +2,7 @@ import { PortfolioItem } from '../types';
 
 export interface Tag {
   label: string;
-  category: 'maker' | 'style' | 'culture' | 'period';
+  category: 'maker' | 'style' | 'culture' | 'period' | 'object';
   color: string; // Tailwind utility classes
 }
 
@@ -31,6 +31,18 @@ const TAG_CLASSES = 'bg-white/[0.06] text-white/70 hover:bg-white/[0.12] hover:t
 
 const MAX_TAGS = 4;
 
+const PLACE_OR_CULTURE_TERMS = [
+  'african', 'american', 'asian', 'australian', 'british', 'chinese',
+  'dutch', 'egyptian', 'english', 'european', 'flemish', 'french',
+  'german', 'greek', 'indian', 'indigenous', 'iranian', 'italian',
+  'japanese', 'korean', 'latin american', 'mexican', 'netherlandish',
+  'persian', 'south asian', 'spanish', 'thai', 'tibetan',
+  'united states', 'usa',
+  'afghanistan', 'china', 'egypt', 'england', 'france', 'germany',
+  'greece', 'india', 'iran', 'italy', 'japan', 'korea', 'mexico',
+  'netherlands', 'spain', 'thailand', 'tibet',
+];
+
 /** Strip parenthetical / nationality noise from an artist name. */
 const cleanMakerName = (raw: string): string =>
   raw
@@ -52,6 +64,11 @@ const periodKey = (raw: string): string =>
     .replace(/twenty-first/g, '21st')
     .replace(/\s+/g, ' ')
     .trim();
+
+const isPlaceOrCulture = (raw: string): boolean => {
+  const lower = raw.toLowerCase().replace(/\s+/g, ' ').trim();
+  return PLACE_OR_CULTURE_TERMS.some((term) => lower === term || lower.includes(term));
+};
 
 export const extractTags = (item: PortfolioItem): Tag[] => {
   const tags: Tag[] = [];
@@ -78,13 +95,18 @@ export const extractTags = (item: PortfolioItem): Tag[] => {
 
   // 2. STYLE — Impressionism, Bauhaus, Modernism (art-history threads).
   if (item.styleTitles) {
-    for (const s of item.styleTitles.slice(0, 2)) add(s, 'style');
+    for (const s of item.styleTitles.slice(0, 2)) {
+      add(s, isPlaceOrCulture(s) ? 'culture' : 'style');
+    }
   }
 
   // 3. CULTURE — Japanese, European, etc. when it adds context.
   if (item.culture) add(item.culture, 'culture');
 
-  // 4. PERIOD — 19th century, decade, etc., normalised.
+  // 4. OBJECT TYPE — precise catalogue thread, not a broad medium cloud.
+  if (item.objectType) add(item.objectType, 'object');
+
+  // 5. PERIOD — 19th century, decade, etc., normalised.
   // Many items don't carry an explicit period but have it embedded in
   // styleTitles (e.g. "19th century") — those already land in step 2.
   // Harvard adapters sometimes stash period in classificationTitles.
@@ -107,15 +129,19 @@ export const extractArtistName = (item: PortfolioItem): string | null => {
 
   const isGeneric = (name: string) => {
     const lower = name.toLowerCase().trim();
-    return genericTokens.some(t => lower.includes(t));
+    return genericTokens.some(t => lower.includes(t)) || isPlaceOrCulture(lower);
   };
 
   // Participants with a creative role
   if (item.participants && item.participants.length > 0) {
-    const donorRoles = ['donated', 'donor', 'previously owned', 'owned by'];
+    const nonMakerRoles = [
+      'culture', 'department', 'donated', 'donor', 'geography',
+      'nationality', 'origin', 'place', 'previously owned', 'region',
+      'school', 'style', 'owned by',
+    ];
     const creator = item.participants.find(p => {
       const role = p.role?.toLowerCase() || '';
-      return !donorRoles.some(d => role.includes(d));
+      return !nonMakerRoles.some(d => role.includes(d));
     });
     if (creator) {
       const cleaned = cleanMakerName(creator.name);

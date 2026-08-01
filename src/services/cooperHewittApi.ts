@@ -120,7 +120,7 @@ const searchDesignObjects = async (
   perPage: number = 100
 ): Promise<DesignObjectData[]> => {
   if (!API_KEY) {
-    console.warn('⚠️ Cooper Hewitt API key not configured');
+    console.warn('Cooper Hewitt API key not configured');
     return [];
   }
 
@@ -153,15 +153,15 @@ const searchDesignObjects = async (
  */
 export const fetchRandomDesignObjects = async (count: number = 32): Promise<DesignObjectData[]> => {
   if (!API_KEY) {
-    console.warn('⚠️ Cooper Hewitt API key not found');
-    console.log('📝 Add your API key to .env file:');
+    console.warn('Cooper Hewitt API key not found');
+    console.log('Add your API key to .env file:');
     console.log('   VITE_COOPER_HEWITT_API_KEY=your_key_here');
-    console.log('🔑 Get a free API key at: https://collection.cooperhewitt.org/api/');
+    console.log('Get a free API key at: https://collection.cooperhewitt.org/api/');
     return [];
   }
 
   try {
-    console.log(`🎨 Fetching ${count} design objects from Cooper Hewitt...`);
+    console.log(`Fetching ${count} design objects from Cooper Hewitt...`);
 
     const results: DesignObjectData[] = [];
     const seen = new Set<string>();
@@ -177,11 +177,11 @@ export const fetchRandomDesignObjects = async (count: number = 32): Promise<Desi
       'chair', 'lamp', 'tableware', 'embroidery', 'printed textile',
       'graphic design', 'sample', 'tile', 'fan', 'book cover',
     ];
-    const TERMS_PER_FETCH = 8;
+    const TERMS_PER_FETCH = 4;
     const distinctTerms = [...ALL_TERMS]
       .sort(() => Math.random() - 0.5)
       .slice(0, TERMS_PER_FETCH);
-    const target = Math.max(count * 2, 30);
+    const target = Math.max(Math.ceil(count * 1.5), 16);
 
     const pages = await Promise.all(
       distinctTerms.map(async (term) => {
@@ -189,7 +189,7 @@ export const fetchRandomDesignObjects = async (count: number = 32): Promise<Desi
         // the pages 1–5 hero cluster that returns the same items.
         const randomPage = Math.floor(Math.random() * 20) + 1;
         try {
-          return await searchDesignObjects(term, randomPage, 100);
+          return await searchDesignObjects(term, randomPage, 36);
         } catch {
           return [] as DesignObjectData[];
         }
@@ -212,11 +212,11 @@ export const fetchRandomDesignObjects = async (count: number = 32): Promise<Desi
     const shuffled = results.sort(() => Math.random() - 0.5);
     const finalResults = shuffled.slice(0, count);
 
-    console.log(`✅ Successfully loaded ${finalResults.length} design objects from Cooper Hewitt (pool of ${results.length})`);
+    console.log(`Successfully loaded ${finalResults.length} design objects from Cooper Hewitt (pool of ${results.length})`);
 
     return finalResults;
   } catch (error) {
-    console.error('❌ Cooper Hewitt API failed:', error);
+    console.error('Cooper Hewitt API failed:', error);
     return [];
   }
 };
@@ -232,12 +232,12 @@ export const searchDesignObjectsByTag = async (
   count: number = 32
 ): Promise<DesignObjectData[]> => {
   if (!API_KEY) {
-    console.warn('⚠️ Cooper Hewitt API key not configured');
+    console.warn('Cooper Hewitt API key not configured');
     return [];
   }
 
   try {
-    console.log(`🔍 Searching Cooper Hewitt for tag: "${tag}" (need ${count} results)`);
+    console.log(`Searching Cooper Hewitt for tag: "${tag}" (need ${count} results)`);
 
     let results: DesignObjectData[] = [];
 
@@ -259,7 +259,7 @@ export const searchDesignObjectsByTag = async (
 
     // If we didn't get enough results, try a broader search with related terms
     if (results.length < count / 2) {
-      console.log(`⚠️ Only found ${results.length} results, trying broader search...`);
+      console.log(`Only found ${results.length} results, trying broader search...`);
 
       // Map common tag patterns to broader search terms
       const broaderTerms: Record<string, string[]> = {
@@ -287,11 +287,11 @@ export const searchDesignObjectsByTag = async (
     }
 
     const finalResults = results.slice(0, count);
-    console.log(`✅ Found ${finalResults.length} design objects for tag "${tag}"`);
+    console.log(`Found ${finalResults.length} design objects for tag "${tag}"`);
 
     return finalResults;
   } catch (error) {
-    console.error('❌ Tag search failed:', error);
+    console.error('Tag search failed:', error);
     return [];
   }
 };

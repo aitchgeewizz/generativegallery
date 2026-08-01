@@ -87,7 +87,7 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
   const positions = generateGridPositions(count);
 
   try {
-    console.log(`🎨 Requesting ${count} artworks from Art Institute API...`);
+    console.log(`Requesting ${count} artworks from Art Institute API...`);
 
     // Fetch from Art Institute of Chicago API (with caching)
     const artworks = await fetchRandomArtworks(count);
@@ -96,7 +96,7 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
       throw new Error('API returned no artworks');
     }
 
-    console.log(`✅ Received ${artworks.length} artworks from Art Institute of Chicago`);
+    console.log(`Received ${artworks.length} artworks from Art Institute of Chicago`);
 
     // Drop anything without a real image_id so we never construct a
     // broken IIIF URL like .../undefined/full/843,/0/default.jpg
@@ -104,7 +104,7 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
       typeof a.image_id === 'string' && a.image_id.length > 0,
     );
     if (withImages.length < artworks.length) {
-      console.log(`🖼️ Filtered to ${withImages.length} with valid image_id`);
+      console.log(`Filtered to ${withImages.length} with valid image_id`);
     }
 
     // Convert API artworks to items
@@ -124,6 +124,7 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
         thumbnailUrl: thumbnailUrl,
         collectionSource: 'Art Institute of Chicago',
         url: `https://www.artic.edu/artworks/${artwork.id}`,
+        date: artwork.date_display,
         // Rich artwork metadata
         shortDescription: artwork.short_description || artwork.description,
         medium: artwork.medium_display,
@@ -137,11 +138,11 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
       };
     });
 
-    console.log(`✨ Successfully created ${items.length} portfolio items`);
+    console.log(`Successfully created ${items.length} portfolio items`);
     return items;
 
   } catch (error) {
-    console.error('❌ Failed to generate artwork items:', error);
+    console.error('Failed to generate artwork items:', error);
     // Return empty array - let the app handle the error state
     // NO FALLBACK to broken images
     throw error;
@@ -157,12 +158,12 @@ export const searchArtworkItemsByTag = async (tag: string, count: number = 32): 
   let items: PortfolioItem[] = [];
 
   try {
-    console.log(`🔍 Searching Art collection for tag: "${tag}"`);
+    console.log(`Searching Art collection for tag: "${tag}"`);
 
     // Search API for items matching tag
     const artworks = await searchArtworksByTag(tag, count);
 
-    console.log(`📊 Found ${artworks.length} artworks for tag "${tag}"`);
+    console.log(`Found ${artworks.length} artworks for tag "${tag}"`);
 
     // Generate positions AFTER we know how many items we have
     // This prevents gaps when we have fewer than 32 items
@@ -181,6 +182,7 @@ export const searchArtworkItemsByTag = async (tag: string, count: number = 32): 
       imageUrl: getImageUrl(artwork.image_id, 843),
       thumbnailUrl: getImageUrl(artwork.image_id, 400),
       collectionSource: 'Art Institute of Chicago',
+      date: artwork.date_display,
       shortDescription: artwork.short_description || artwork.description,
       medium: artwork.medium_display,
       dimensions: artwork.dimensions,
@@ -193,10 +195,10 @@ export const searchArtworkItemsByTag = async (tag: string, count: number = 32): 
       copyrightStatus: 'public_domain' as const,
     }));
 
-    console.log(`✅ Returning ${items.length} centered art items for tag "${tag}"`);
+    console.log(`Returning ${items.length} centered art items for tag "${tag}"`);
     return items;
   } catch (error) {
-    console.error('❌ Art tag search failed:', error);
+    console.error('Art tag search failed:', error);
     return [];
   }
 };

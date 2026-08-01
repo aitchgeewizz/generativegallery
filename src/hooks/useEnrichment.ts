@@ -56,7 +56,7 @@ export const useEnrichment = (item: PortfolioItem | null) => {
   const artistName = item ? extractArtistName(item) : null;
 
   const loadArtistInfo = useCallback(async () => {
-    if (!artistName || state.artistFetched) return;
+    if (!artistName || state.artistFetched || state.artistLoading) return;
 
     setState(s => ({ ...s, artistLoading: true, artistError: false }));
 
@@ -76,10 +76,10 @@ export const useEnrichment = (item: PortfolioItem | null) => {
         artistFetched: true,
       }));
     }
-  }, [artistName, state.artistFetched]);
+  }, [artistName, state.artistFetched, state.artistLoading]);
 
   const loadArtworkContext = useCallback(async () => {
-    if (!item || state.artworkFetched) return;
+    if (!item || state.artworkFetched || state.artworkLoading) return;
 
     setState(s => ({ ...s, artworkLoading: true, artworkError: false }));
 
@@ -99,10 +99,10 @@ export const useEnrichment = (item: PortfolioItem | null) => {
         artworkFetched: true,
       }));
     }
-  }, [item, artistName, state.artworkFetched]);
+  }, [item, artistName, state.artworkFetched, state.artworkLoading]);
 
   const loadRelatedWorks = useCallback(async () => {
-    if (!item || !artistName || state.relatedFetched) return;
+    if (!item || !artistName || state.relatedFetched || state.relatedLoading) return;
 
     setState(s => ({ ...s, relatedLoading: true, relatedError: false }));
 
@@ -122,7 +122,7 @@ export const useEnrichment = (item: PortfolioItem | null) => {
         relatedFetched: true,
       }));
     }
-  }, [item, artistName, state.relatedFetched]);
+  }, [item, artistName, state.relatedFetched, state.relatedLoading]);
 
   const reset = useCallback(() => {
     setState(initialState);

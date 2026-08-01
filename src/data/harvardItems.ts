@@ -64,6 +64,7 @@ const convertHarvardToPortfolioItem = (
     thumbnailUrl: thumbnailUrl || undefined,
     collectionSource: 'Harvard Photography',
     url: artwork.url,
+    date: artwork.dated || artwork.century,
 
     // Rich metadata
     shortDescription: artwork.description,
@@ -99,13 +100,13 @@ export const generateHarvardItems = async (count: number = 32): Promise<Portfoli
   const positions = generateGridPositions(count);
 
   try {
-    console.log(`🎨 Generating ${count} Harvard Art Museums items...`);
+    console.log(`Generating ${count} Harvard Art Museums items...`);
 
     // Fetch artworks from Harvard API
     const artworks = await fetchHarvardArtworks(count);
 
     if (artworks.length === 0) {
-      console.warn('⚠️ No artworks received from Harvard API');
+      console.warn('No artworks received from Harvard API');
       return [];
     }
 
@@ -118,7 +119,7 @@ export const generateHarvardItems = async (count: number = 32): Promise<Portfoli
       return typeof url === 'string' && url.length > 0;
     });
     if (withImages.length < artworks.length) {
-      console.log(`🖼️ Harvard: filtered to ${withImages.length} with valid imagery`);
+      console.log(`Harvard: filtered to ${withImages.length} with valid imagery`);
     }
 
     // Convert to PortfolioItems
@@ -126,10 +127,10 @@ export const generateHarvardItems = async (count: number = 32): Promise<Portfoli
       convertHarvardToPortfolioItem(artwork, i, positions)
     );
 
-    console.log(`✅ Generated ${items.length} Harvard items`);
+    console.log(`Generated ${items.length} Harvard items`);
     return items;
   } catch (error) {
-    console.error('❌ Failed to generate Harvard items:', error);
+    console.error('Failed to generate Harvard items:', error);
     return [];
   }
 };
@@ -143,7 +144,7 @@ export const searchHarvardItemsByTag = async (
   count: number = 32
 ): Promise<PortfolioItem[]> => {
   try {
-    console.log(`🔍 Searching Harvard for tag: "${tag}"`);
+    console.log(`Searching Harvard for tag: "${tag}"`);
 
     // Search Harvard API
     const artworks = await searchHarvardByTag(tag, count);
@@ -183,10 +184,10 @@ export const searchHarvardItemsByTag = async (
       convertHarvardToPortfolioItem(artwork, i, positions)
     );
 
-    console.log(`✅ Found ${items.length} Harvard items for "${tag}"`);
+    console.log(`Found ${items.length} Harvard items for "${tag}"`);
     return items;
   } catch (error) {
-    console.error('❌ Harvard tag search failed:', error);
+    console.error('Harvard tag search failed:', error);
     return [];
   }
 };

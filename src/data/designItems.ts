@@ -71,11 +71,11 @@ export const generateDesignItems = async (count: number = 32): Promise<Portfolio
     // Fetch from Cooper Hewitt Design Museum collection
     const designObjects = await fetchRandomDesignObjects(count);
 
-    console.log(`📊 Received ${designObjects.length} design objects from Cooper Hewitt API`);
+    console.log(`Received ${designObjects.length} design objects from Cooper Hewitt API`);
 
     // Only keep objects with valid image URLs
     const withImages = designObjects.filter(d => getDesignImageUrl(d) !== null);
-    console.log(`🖼️ ${withImages.length} of ${designObjects.length} have usable images`);
+    console.log(`${withImages.length} of ${designObjects.length} have usable images`);
 
     // Convert API design objects to items
     items = withImages.slice(0, count).map((design, i) => {
@@ -101,6 +101,7 @@ export const generateDesignItems = async (count: number = 32): Promise<Portfolio
         imageUrl: imageUrl || undefined,
         thumbnailUrl: thumbnailUrl || undefined,
         collectionSource: 'Cooper Hewitt Smithsonian Design Museum',
+        date: design.date,
 
         // Rich metadata from Cooper Hewitt
         medium: design.medium,
@@ -140,10 +141,10 @@ export const generateDesignItems = async (count: number = 32): Promise<Portfolio
       };
     });
 
-    console.log(`✅ Returning ${items.length} design items from Cooper Hewitt`);
+    console.log(`Returning ${items.length} design items from Cooper Hewitt`);
     return items;
   } catch (error) {
-    console.error('❌ Cooper Hewitt API failed:', error);
+    console.error('Cooper Hewitt API failed:', error);
     // Return empty — App.tsx will compensate by pulling more from the
     // other sources. We do not pad with broken hand-coded stubs.
     return [];
@@ -159,12 +160,12 @@ export const searchDesignItemsByTag = async (tag: string, count: number = 32): P
   let items: PortfolioItem[] = [];
 
   try {
-    console.log(`🔍 Searching Design collection for tag: "${tag}"`);
+    console.log(`Searching Design collection for tag: "${tag}"`);
 
     // Search API for items matching tag
     const designObjects = await searchDesignObjectsByTag(tag, count);
 
-    console.log(`📊 Found ${designObjects.length} design objects for tag "${tag}"`);
+    console.log(`Found ${designObjects.length} design objects for tag "${tag}"`);
 
     // Only keep objects with valid image URLs
     const withImages = designObjects.filter(d => getDesignImageUrl(d) !== null);
@@ -196,6 +197,7 @@ export const searchDesignItemsByTag = async (tag: string, count: number = 32): P
         imageUrl: imageUrl || undefined,
         thumbnailUrl: thumbnailUrl || undefined,
         collectionSource: 'Cooper Hewitt Smithsonian Design Museum',
+        date: design.date,
         medium: design.medium,
         dimensions: design.dimensions,
         url: design.url,
@@ -222,10 +224,10 @@ export const searchDesignItemsByTag = async (tag: string, count: number = 32): P
       };
     });
 
-    console.log(`✅ Returning ${items.length} centered design items for tag "${tag}"`);
+    console.log(`Returning ${items.length} centered design items for tag "${tag}"`);
     return items;
   } catch (error) {
-    console.error('❌ Design tag search failed:', error);
+    console.error('Design tag search failed:', error);
     return [];
   }
 };

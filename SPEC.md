@@ -60,7 +60,7 @@ This is one small way to do it.
 
 These follow directly from the north star and shouldn't be violated without a deliberate revisit of the thesis:
 
-1. **A handful, not a flood.** Target 8–12 visible artworks per "set." A refresh gives a new set. We never paginate-on-scroll new content.
+1. **A handful, not a flood.** Target a finite room of roughly 18–24 artworks per "set." A refresh gives a new set. We never paginate-on-scroll new content.
 2. **Unified, not siloed.** Works from all sources are blended in the visible set. There is no collection-picker as primary navigation. Source attribution belongs in the detail view, where it informs without gating.
 3. **The canvas can loop spatially** so the same handful comes back around as you drag — like walking through a small gallery room twice. This is *not* infinite content. It is finite content arranged for spatial exploration.
 4. **No algorithmic "more like this."** Lateral browsing is permitted but only in catalogue-style threads: more by this maker, more from this year, more from this period. Not "broadly similar things."
@@ -69,15 +69,15 @@ These follow directly from the north star and shouldn't be violated without a de
 
 ## What's in scope (now, v1, ship today)
 
-- ✅ Drag-to-pan canvas with momentum, looped 3×3 tiling so a small set wraps around
-- ✅ A handful of works (target ~12) blended from three museum APIs: Art Institute of Chicago, Cooper Hewitt / Smithsonian Design, Harvard Art Museums
-- ✅ Full-screen detail view with rich metadata, arrow-key navigation, click-through to the source institution
-- ✅ Click an artwork's maker or year to surface more from that thread
-- ✅ Refresh to get a new set
-- ✅ Custom SeasonMix typeface (transitional editorial, six weights)
-- ✅ Subtle gallery grain overlay
-- ✅ Brand identity laid in: name, page title, OG meta, README, repo metadata
-- ✅ Vercel deploy config
+- Drag-to-pan canvas with momentum, looped 3×3 tiling so a small set wraps around
+- A small room of works (target ~18-24, never a feed) blended from three museum APIs: Art Institute of Chicago, Cooper Hewitt / Smithsonian Design, Harvard Art Museums
+- Full-screen detail view with rich metadata, arrow-key navigation, click-through to the source institution
+- Click an artwork's maker or year to surface more from that thread
+- Refresh to get a new set
+- Free Google Fonts type system: Workbench for brand/accent moments, Space Grotesk for readable UI, Space Mono for catalogue metadata
+- Subtle gallery grain overlay
+- Brand identity laid in: name, page title, OG meta, README, repo metadata
+- Vercel deploy config
 
 ## What's out of scope (deferred or rejected)
 
@@ -115,7 +115,7 @@ The version that ships today succeeds if:
 - **React 19 + TypeScript + Vite**
 - **Framer Motion** for drag and motion
 - **Tailwind CSS** for utility styling
-- **SeasonMix** custom typeface, served from `/public/font/`
+- **Workbench + Space Grotesk + Space Mono** free Google Fonts type system
 - **Pluggable collections registry** in `src/collections/` — each museum is a self-contained adapter implementing a shared `CollectionDefinition` interface
 - **APIs:** Art Institute (no key), Cooper Hewitt (`VITE_COOPER_HEWITT_API_KEY`), Harvard (`VITE_HARVARD_KEY`)
 

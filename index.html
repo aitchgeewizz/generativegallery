@@ -28,20 +28,21 @@
     <link rel="preconnect" href="https://collection.cooperhewitt.org" />
     <link rel="preconnect" href="https://api.harvardartmuseums.org" />
 
-    <!-- Crimson Pro as a variable font: one file covers all weights 200–400.
-         Smaller total payload than requesting three discrete weights. -->
+    <!-- Free Google font system:
+         Workbench for the wordmark/accent moments, Space Grotesk for
+         readable UI, and Space Mono for catalogue metadata. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@200..400&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Space+Mono:wght@400;700&family=Workbench:BLED,SCAN@0..100,-53..100&display=swap" rel="stylesheet" />
 
     <style>
       /* Inline above-the-fold styles so the noscript fallback and the
          pre-hydration paint don't flash unstyled. Mirrors index.css. */
-      body { margin: 0; background: #0a0a0a; color: rgba(255,255,255,0.92); font-family: 'Crimson Pro', -apple-system, BlinkMacSystemFont, serif; font-weight: 300; overflow: hidden; }
+      body { margin: 0; background: #0a0a0a; color: #D0D0D0; font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif; font-weight: 300; overflow: hidden; }
       .ns-wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 2rem; }
       .ns-inner { max-width: 56rem; text-align: center; }
-      .ns-title { font-size: clamp(2rem, 6vw, 4.5rem); line-height: 1.05; letter-spacing: -0.01em; text-transform: uppercase; margin: 0; }
-      .ns-body { font-size: clamp(0.9rem, 1.5vw, 1.25rem); color: rgba(255,255,255,0.72); margin: 1.5rem 0 0; }
+      .ns-title { font-family: 'Workbench', monospace; font-size: clamp(2rem, 6vw, 4.5rem); line-height: 1.05; letter-spacing: 0.02em; text-transform: uppercase; margin: 0; }
+      .ns-body { font-size: clamp(0.9rem, 1.5vw, 1.25rem); color: rgba(208,208,208,0.72); margin: 1.5rem 0 0; }
     </style>
   </head>
   <body>

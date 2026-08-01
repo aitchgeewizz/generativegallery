@@ -21,10 +21,10 @@ interface InfiniteCanvasProps {
  * Items come in pre-laid-out (see App.tsx#layoutCentered), so we read
  * their bounding box rather than re-deriving it from a row/column rule.
  */
+const ITEM_SIZE = 200;
+
 const computeLoopBounds = (items: PortfolioItemType[]): { width: number; height: number } => {
   if (items.length === 0) return { width: 1, height: 1 };
-  // Item tile size = 200 + 80 gap; matches App.tsx#GRID.
-  const TILE = 280;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const it of items) {
     if (it.x < minX) minX = it.x;
@@ -34,7 +34,11 @@ const computeLoopBounds = (items: PortfolioItemType[]): { width: number; height:
   }
   // Add one tile of trailing space so the right/bottom edge of the last
   // item plus its gap completes the cell before the loop repeats.
-  return { width: maxX - minX + TILE, height: maxY - minY + TILE };
+  const xs = [...new Set(items.map((item) => item.x))].sort((a, b) => a - b);
+  const ys = [...new Set(items.map((item) => item.y))].sort((a, b) => a - b);
+  const stepX = xs.length > 1 ? xs[1] - xs[0] : ITEM_SIZE;
+  const stepY = ys.length > 1 ? ys[1] - ys[0] : ITEM_SIZE;
+  return { width: maxX - minX + stepX, height: maxY - minY + stepY };
 };
 
 export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
@@ -59,7 +63,7 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
     (item: PortfolioItemType) => {
       // Only trigger click if it wasn't a drag
       if (isClick()) {
-        console.log('🖱️ Item clicked:', {
+        console.log('Item clicked:', {
           clickedId: item.id,
           clickedTitle: item.title,
           clickedImageUrl: item.imageUrl,
@@ -71,19 +75,19 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
           ? parseInt(item.id.split('-')[0])
           : item.id;
 
-        console.log('🔍 Looking for base ID:', baseId);
+        console.log('Looking for base ID:', baseId);
 
         const baseItem = items.find(i => i.id === baseId);
 
         if (baseItem) {
-          console.log('✅ Found base item:', {
+          console.log('Found base item:', {
             id: baseItem.id,
             title: baseItem.title,
             imageUrl: baseItem.imageUrl,
           });
           setSelectedItem(baseItem);
         } else {
-          console.log('⚠️ Base item not found, using clicked item');
+          console.log('Base item not found, using clicked item');
           setSelectedItem(item);
         }
       }
@@ -139,7 +143,7 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
 
       {/* Info overlay — thesis-aligned: no count claim, no "click-bait", just orientation */}
       <div
-        className="absolute bottom-6 left-6 text-xs pointer-events-none select-none font-display tracking-wide"
+        className="absolute bottom-6 left-6 type-small pointer-events-none select-none"
         style={{ color: 'var(--text-3)' }}
       >
         <p>Drag to look around &middot; Click a piece to read about it</p>

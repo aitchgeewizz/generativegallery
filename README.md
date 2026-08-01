@@ -28,7 +28,7 @@ Domain: **slowerstranger.com** (pending DNS pointing to Vercel).
 
 ## Stack
 
-React 19 · TypeScript · Vite · Framer Motion · Tailwind CSS · custom **SeasonMix** typeface · pluggable collection registry in `src/collections/`.
+React 19 · TypeScript · Vite · Framer Motion · Tailwind CSS · Google Fonts type system (**Workbench**, **Space Grotesk**, **Space Mono**) · pluggable collection registry in `src/collections/`.
 
 ## Structure
 

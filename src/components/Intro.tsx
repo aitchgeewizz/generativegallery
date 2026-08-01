@@ -31,9 +31,26 @@ export const Intro = () => {
         <div className="max-w-5xl">
           <motion.h1
             initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-            className="font-display uppercase text-4xl md:text-6xl lg:text-7xl tracking-tight leading-[1.05]"
+            animate={{
+              opacity: 1,
+              y: 0,
+              fontVariationSettings: [
+                "'BLED' 18, 'SCAN' 2",
+                "'BLED' 30, 'SCAN' 16",
+                "'BLED' 24, 'SCAN' 10",
+              ],
+            }}
+            transition={{
+              opacity: { duration: 0.8, ease: 'easeOut' },
+              y: { duration: 0.8, ease: 'easeOut' },
+              fontVariationSettings: {
+                duration: 2.4,
+                ease: 'easeInOut',
+                repeat: Infinity,
+                repeatType: 'mirror',
+              },
+            }}
+            className="type-wordmark-hero uppercase"
             style={{ color: 'var(--text)' }}
           >
             SLOWER STRANGER
@@ -42,7 +59,7 @@ export const Intro = () => {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: 'easeOut', delay: 0.1 }}
-            className="font-display mt-6 text-lg md:text-2xl tracking-tight"
+            className="mt-8 type-lede"
             style={{ color: 'var(--text-2)' }}
           >
             A few unexpected pieces of art and design to fill our cups
@@ -57,7 +74,7 @@ export const Intro = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8, delay: 0.4 }}
-        className="absolute inset-x-0 bottom-[18vh] text-center font-display text-xs md:text-sm uppercase tracking-[0.25em]"
+        className="absolute inset-x-0 bottom-[18vh] text-center font-wordmark type-control"
         aria-label="Loading the wall"
         style={{ color: 'var(--text-2)' }}
       >
@@ -67,7 +84,14 @@ export const Intro = () => {
           ) : (
             <motion.span
               key={i}
-              animate={{ opacity: [0.18, 1, 0.18] }}
+              animate={{
+                opacity: [0.25, 1, 0.25],
+                fontVariationSettings: [
+                  "'BLED' 12, 'SCAN' 0",
+                  "'BLED' 34, 'SCAN' 20",
+                  "'BLED' 12, 'SCAN' 0",
+                ],
+              }}
               transition={{
                 duration: 2.2,
                 delay: i * 0.12,

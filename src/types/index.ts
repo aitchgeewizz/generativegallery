@@ -30,6 +30,7 @@ export interface PortfolioItem {
   pixelated?: boolean;
   collectionSource?: string;
   url?: string;
+  date?: string;
 
   // Rich artwork metadata (Art Institute)
   shortDescription?: string;

@@ -9,23 +9,27 @@ import { PortfolioItem, ActiveFilter } from './types';
 
 type Theme = 'dark' | 'light';
 const THEME_STORAGE_KEY = 'slowerstranger:theme';
+const SOURCE_STORAGE_KEY = 'slowerstranger:sourceMode';
 
 /**
  * Target visible artworks per refresh. Per SPEC.md: finite, curated,
- * not infinite. 24 in a 6x4 loop tile reads as a small gallery wall.
+ * not infinite. Twenty-four works in a looped 6x4 room keeps the
+ * viewport full on tall screens without adding new content as you drag.
  *
- * PER_SOURCE is intentionally a bit higher than HANDFUL/3 so that
- * after we filter out items lacking images and interleave the rest,
- * we still land on ~24 even when one museum returns a partial set.
+ * Cooper Hewitt gets reserved presence because design archives are
+ * central to the project, while the other sources fill the room around it.
  */
 const HANDFUL = 24;
-const PER_SOURCE = 10;
+const COOPER_HEWITT_ID = 'met-design';
+const DESIGN_RESERVED = 8;
+const PER_SUPPORTING_SOURCE = 12;
+const SOURCE_TIMEOUT_MS = 8500;
 
 const GRID = {
   itemsPerRow: 6,
   itemWidth: 200,
   itemHeight: 200,
-  gap: 80,
+  gap: 40,
 };
 
 /**
@@ -65,7 +69,24 @@ const interleave = <T,>(lists: T[][]): T[] => {
   return out;
 };
 
-const SOURCE_STORAGE_KEY = 'slowerstranger:sourceMode';
+const withTimeout = async <T,>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T,
+  label: string,
+): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.warn(`${label} timed out after ${ms}ms`);
+      resolve(fallback);
+    }, ms);
+  });
+
+  const result = await Promise.race([promise, timeout]);
+  if (timeoutId) clearTimeout(timeoutId);
+  return result;
+};
 
 function App() {
   const [items, setItems] = useState<PortfolioItem[]>([]);
@@ -92,12 +113,13 @@ function App() {
 
   const handleThemeToggle = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
-  // Source mode: Mixed (default) or a single archive. Persisted so a
-  // visitor's preference survives refresh.
+  // Quiet archive lens. Mixed is still the default experience, but
+  // Design remains intentionally reachable because Cooper Hewitt is
+  // load-bearing for this project.
   const [sourceMode, setSourceMode] = useState<SourceMode>(() => {
     const saved = localStorage.getItem(SOURCE_STORAGE_KEY);
-    const valid: SourceMode[] = ['mixed', 'art-institute', 'met-design', 'harvard'];
-    return (valid.includes(saved as SourceMode) ? (saved as SourceMode) : 'mixed');
+    const valid: SourceMode[] = ['mixed', 'met-design', 'art-institute', 'harvard'];
+    return valid.includes(saved as SourceMode) ? (saved as SourceMode) : 'mixed';
   });
 
   // Session-wide set of artwork signatures already shown. Prevents the
@@ -142,45 +164,80 @@ function App() {
         let raw: PortfolioItem[];
 
         if (sourceMode === 'mixed') {
-          console.log(`🔄 Loading mixed handful (${HANDFUL}) from ${collections.length} archives…`);
-          const perSource = await Promise.all(
-            collections.map(async (c) => {
+          console.log(`Loading mixed room (${HANDFUL}) from ${collections.length} archives`);
+
+          const designCollection = collections.find((c) => c.id === COOPER_HEWITT_ID);
+          const supportingCollections = collections.filter((c) => c.id !== COOPER_HEWITT_ID);
+
+          const designPromise = designCollection
+            ? withTimeout(
+                designCollection.fetchItems(DESIGN_RESERVED),
+                SOURCE_TIMEOUT_MS,
+                [] as PortfolioItem[],
+                designCollection.name,
+              ).catch((err) => {
+                console.warn(`${designCollection.name} failed:`, err);
+                return [] as PortfolioItem[];
+              })
+            : Promise.resolve([] as PortfolioItem[]);
+
+          const supportingPromise = Promise.all(
+            supportingCollections.map(async (c) => {
               try {
-                return await c.fetchItems(PER_SOURCE);
+                return await c.fetchItems(PER_SUPPORTING_SOURCE);
               } catch (err) {
-                console.warn(`⚠️ ${c.name} failed:`, err);
+                console.warn(`${c.name} failed:`, err);
                 return [] as PortfolioItem[];
               }
             }),
           );
-          raw = filterAndMarkUnseen(interleave(perSource)).slice(0, HANDFUL);
 
-          // If the seen-set ate most of the batch, kick a second round.
-          // Each API call uses a different random seed (search term,
-          // random page) so a second pass usually surfaces fresh items.
-          if (!cancelled && raw.length < HANDFUL * 0.7) {
-            console.log(`🔁 Only ${raw.length} unseen — fetching a second pass`);
-            const second = await Promise.all(
-              collections.map((c) =>
-                c.fetchItems(PER_SOURCE).catch(() => [] as PortfolioItem[]),
-              ),
-            );
-            const moreUnseen = filterAndMarkUnseen(interleave(second));
-            raw = [...raw, ...moreUnseen].slice(0, HANDFUL);
-          }
+          const [designItems, supportingItems] = await Promise.all([
+            designPromise,
+            supportingPromise,
+          ]);
+
+          const freshDesign = filterAndMarkUnseen(designItems).slice(0, DESIGN_RESERVED);
+          const freshSupporting = filterAndMarkUnseen(interleave(supportingItems)).slice(
+            0,
+            HANDFUL - freshDesign.length,
+          );
+
+          raw = interleave([freshDesign, freshSupporting]).slice(0, HANDFUL);
         } else {
           const c = getCollection(sourceMode);
           if (!c) throw new Error(`Unknown source: ${sourceMode}`);
-          console.log(`🔄 Loading ${HANDFUL} from ${c.name}…`);
-          const first = await c.fetchItems(HANDFUL);
-          raw = filterAndMarkUnseen(first).slice(0, HANDFUL);
+          console.log(`Loading ${HANDFUL} from ${c.name}`);
+          raw = filterAndMarkUnseen(
+            await withTimeout(
+              c.fetchItems(HANDFUL),
+              SOURCE_TIMEOUT_MS,
+              [] as PortfolioItem[],
+              c.name,
+            ),
+          ).slice(0, HANDFUL);
+        }
 
-          if (!cancelled && raw.length < HANDFUL * 0.7) {
-            console.log(`🔁 Only ${raw.length} unseen in ${c.name} — fetching a second pass`);
-            const second = await c.fetchItems(HANDFUL).catch(() => [] as PortfolioItem[]);
-            const moreUnseen = filterAndMarkUnseen(second);
-            raw = [...raw, ...moreUnseen].slice(0, HANDFUL);
-          }
+        // If APIs return stale or sparse data, kick a second pass. This
+        // keeps the wall finite while avoiding a half-empty first room.
+        if (!cancelled && raw.length > 0 && raw.length < HANDFUL * 0.7) {
+          console.log(`Only ${raw.length} unseen works; fetching a second pass`);
+          const second = sourceMode === 'mixed'
+            ? await Promise.all(
+                collections.map((c) =>
+                  c.fetchItems(PER_SUPPORTING_SOURCE).catch(() => [] as PortfolioItem[]),
+                ),
+              )
+            : [
+                await withTimeout(
+                  getCollection(sourceMode)?.fetchItems(HANDFUL) || Promise.resolve([] as PortfolioItem[]),
+                  SOURCE_TIMEOUT_MS,
+                  [] as PortfolioItem[],
+                  getCollection(sourceMode)?.name || 'Archive',
+                ).catch(() => [] as PortfolioItem[]),
+              ];
+          const moreUnseen = filterAndMarkUnseen(interleave(second));
+          raw = [...raw, ...moreUnseen].slice(0, HANDFUL);
         }
 
         if (cancelled) return;
@@ -190,12 +247,12 @@ function App() {
         }
 
         const placed = layoutCentered(raw);
-        console.log(`✅ Loaded ${placed.length} items (${sourceMode}, seen=${seenSignaturesRef.current.size})`);
+        console.log(`Loaded ${placed.length} items (seen=${seenSignaturesRef.current.size})`);
         setItems(placed);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
-        console.error('❌ Failed to load handful:', err);
+        console.error('Failed to load room:', err);
         setError(err instanceof Error ? err.message : 'Couldn’t load the archives.');
         setLoading(false);
       }
@@ -231,7 +288,7 @@ function App() {
   // name or unrelated description. We post-filter to items where the
   // maker is actually credited.
   const handleTagClick = async (tagLabel: string, category?: string) => {
-    console.log(`🏷️ Following the thread: ${tagLabel} (category=${category || 'unspecified'})`);
+    console.log(`Following the thread: ${tagLabel} (category=${category || 'unspecified'})`);
 
     setActiveFilter({
       mode: 'tag-filter',
@@ -246,7 +303,9 @@ function App() {
     try {
       // Over-fetch when we're going to post-filter, so we still land
       // on a reasonable count after weeding out non-matches.
-      const perSourceForSearch = category === 'maker' ? PER_SOURCE * 3 : PER_SOURCE;
+      const perSourceForSearch = category === 'maker'
+        ? PER_SUPPORTING_SOURCE * 3
+        : PER_SUPPORTING_SOURCE;
       const results = await Promise.all(
         collections.map((c) =>
           c.searchByTag(tagLabel, perSourceForSearch).catch(() => [] as PortfolioItem[]),
@@ -269,7 +328,7 @@ function App() {
           const inDescription = (item.description || '').toLowerCase().includes(needle);
           return inDescription;
         });
-        console.log(`🎯 Maker filter kept ${mixed.length} of the matched items`);
+        console.log(`Maker filter kept ${mixed.length} of the matched items`);
       }
 
       mixed = mixed.slice(0, HANDFUL);
@@ -283,9 +342,9 @@ function App() {
         resultCount: placed.length,
         canExpandScope: false,
       });
-      console.log(`✅ Found ${placed.length} items for "${tagLabel}"`);
+      console.log(`Found ${placed.length} items for "${tagLabel}"`);
     } catch (err) {
-      console.error('❌ Tag search failed:', err);
+      console.error('Tag search failed:', err);
       setItems([]);
     }
 
@@ -303,14 +362,14 @@ function App() {
       <div className="w-full h-screen flex items-center justify-center bg-[var(--bg)] gallery-grain">
         <div className="flex flex-col items-center gap-8 max-w-md text-center px-4">
           <div className="space-y-3">
-            <h2 className="text-xl font-display tracking-wide" style={{ color: 'var(--text-2)' }}>
+            <h2 className="type-panel-title" style={{ color: 'var(--text-2)' }}>
               The archive couldn&rsquo;t open
             </h2>
-            <p className="text-sm font-display" style={{ color: 'var(--text-3)' }}>{error}</p>
+            <p className="type-body" style={{ color: 'var(--text-3)' }}>{error}</p>
           </div>
           <button
             onClick={handleRefresh}
-            className="text-sm font-display tracking-wide transition-colors"
+            className="type-control transition-colors"
             style={{ color: 'var(--text-2)' }}
           >
             Try again
@@ -326,16 +385,16 @@ function App() {
       <div className="w-full h-screen flex items-center justify-center bg-[var(--bg)] gallery-grain">
         <div className="flex flex-col items-center gap-8 max-w-md text-center px-4">
           <div className="space-y-3">
-            <h2 className="text-xl font-display tracking-wide" style={{ color: 'var(--text-2)' }}>
+            <h2 className="type-panel-title" style={{ color: 'var(--text-2)' }}>
               Nothing for &ldquo;{activeFilter.tagLabel}&rdquo;
             </h2>
-            <p className="text-sm font-display" style={{ color: 'var(--text-3)' }}>
+            <p className="type-body" style={{ color: 'var(--text-3)' }}>
               The thread doesn&rsquo;t lead anywhere in these archives.
             </p>
           </div>
           <button
             onClick={handleClearFilter}
-            className="text-sm font-display tracking-wide transition-colors"
+            className="type-control transition-colors"
             style={{ color: 'var(--text-2)' }}
           >
             Back
@@ -375,7 +434,7 @@ function App() {
       {activeFilter.mode === 'tag-filter' && !loading && (
         <button
           onClick={handleClearFilter}
-          className="fixed bottom-6 left-6 z-40 text-sm font-display tracking-wide transition-colors"
+          className="fixed bottom-6 left-6 z-40 type-small transition-colors"
           style={{ color: 'var(--text-3)' }}
         >
           &larr; Back to the wall

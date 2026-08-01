@@ -4,15 +4,24 @@ interface ColorPaletteProps {
   colors: string[];
 }
 
-/**
- * Cooper Hewitt-style colour palette strip — small square swatches.
- * Hover shows the hex. Click copies that swatch's hex. The "Copy all"
- * action copies the comma-separated palette in one shot.
- *
- * Visual feedback is a brief inline "Copied #RRGGBB" message that
- * fades after ~1.5s so the user knows the click landed (clipboard
- * actions are otherwise silent).
- */
+const writeToClipboard = async (value: string) => {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = value;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.top = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand('copy');
+  document.body.removeChild(textarea);
+  if (!copied) throw new Error('Clipboard copy failed');
+};
+
 export const ColorPalette = ({ colors }: ColorPaletteProps) => {
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -20,13 +29,16 @@ export const ColorPalette = ({ colors }: ColorPaletteProps) => {
 
   const copy = async (value: string, label: string) => {
     try {
-      await navigator.clipboard.writeText(value);
+      await writeToClipboard(value);
       setCopied(label);
       window.setTimeout(() => {
         setCopied((prev) => (prev === label ? null : prev));
       }, 1500);
     } catch {
-      // Clipboard API unavailable / blocked — silently no-op.
+      setCopied('Copy blocked');
+      window.setTimeout(() => {
+        setCopied((prev) => (prev === 'Copy blocked' ? null : prev));
+      }, 1800);
     }
   };
 
@@ -34,43 +46,62 @@ export const ColorPalette = ({ colors }: ColorPaletteProps) => {
     <div className="mt-7">
       <div className="flex items-center justify-between mb-3">
         <p
-          className="text-xs uppercase tracking-[0.18em] font-display"
+          className="type-meta"
           style={{ color: 'var(--text-3)' }}
         >
           Palette
         </p>
         <button
-          onClick={() => copy(colors.join(', '), 'palette')}
-          className="text-xs font-display tracking-wide transition-colors underline-offset-4 hover:underline"
+          onClick={() => copy(colors.join('\n'), 'All hex copied')}
+          className="type-small transition-colors underline-offset-4 hover:underline"
           style={{ color: 'var(--text-3)' }}
-          title="Copy all colours as comma-separated hex"
+          title="Copy all hex codes"
         >
-          {copied === 'palette' ? 'Copied' : 'Copy all'}
+          {copied === 'All hex copied' ? 'Copied' : 'Copy all hex'}
         </button>
       </div>
 
-      <div className="flex items-center gap-1.5">
+      <div className="grid grid-cols-5 gap-1.5">
         {colors.map((hex) => (
           <button
             key={hex}
             onClick={() => copy(hex, hex)}
             title={copied === hex ? `Copied ${hex}` : hex}
             aria-label={`Copy ${hex}`}
-            className="w-7 h-7 rounded-sm transition-transform hover:scale-110"
-            style={{
-              background: hex,
-              boxShadow: '0 0 0 1px var(--border)',
-            }}
-          />
+            className="group flex flex-col gap-1.5 text-left"
+          >
+            <span
+              className="block h-9 rounded-sm transition-transform group-hover:scale-[1.03]"
+              style={{
+                background: hex,
+                boxShadow: '0 0 0 1px var(--border)',
+              }}
+            />
+            <span
+              className="type-small tabular-nums underline-offset-4 group-hover:underline"
+              style={{ color: 'var(--text-3)' }}
+            >
+              {hex.replace('#', '')}
+            </span>
+          </button>
         ))}
       </div>
 
-      {copied && copied !== 'palette' && (
+      {copied && copied !== 'All hex copied' && (
         <p
-          className="mt-2 text-xs font-display tabular-nums"
+          className="mt-2 type-small tabular-nums"
           style={{ color: 'var(--text-3)' }}
         >
-          Copied {copied}
+          {copied === 'Copy blocked' ? 'Copy blocked by browser' : `Copied ${copied}`}
+        </p>
+      )}
+
+      {copied === 'All hex copied' && (
+        <p
+          className="mt-2 type-small tabular-nums"
+          style={{ color: 'var(--text-3)' }}
+        >
+          Copied all hex codes
         </p>
       )}
     </div>

@@ -2,8 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Crimson Pro is loaded via Google Fonts CDN in index.html
-   (weights 200, 300, 400). No local @font-face needed. */
+/* Google Fonts are loaded in index.html:
+   Workbench for brand/accent type, Space Grotesk for readable UI,
+   and Space Mono for catalogue metadata. */
 
 * {
   margin: 0;
@@ -37,10 +38,10 @@
 .dark {
   --bg: #0a0a0a;
   --bg-elev: #141414;
-  --text: rgba(255, 255, 255, 0.92);
-  --text-2: rgba(255, 255, 255, 0.72);
-  --text-3: rgba(255, 255, 255, 0.55);
-  --text-4: rgba(255, 255, 255, 0.38);
+  --text: #d0d0d0;
+  --text-2: rgba(208, 208, 208, 0.76);
+  --text-3: rgba(208, 208, 208, 0.56);
+  --text-4: rgba(208, 208, 208, 0.38);
   --border: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.18);
   --surface: rgba(255, 255, 255, 0.04);
@@ -50,8 +51,8 @@
 }
 
 body {
-  font-family: 'Crimson Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', serif;
-  font-weight: 300;
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+  font-weight: 400;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--bg);
@@ -60,23 +61,115 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Weight hierarchy tuned for Crimson Pro:
-   - Large display (hero h1, artwork title): ExtraLight (200) — the
-     editorial moment. Thin and elegant at large sizes.
-   - Body, wordmark, and most UI: Light (300) — default from body.
-   - Small uppercase eyebrows: Regular (400) so they read clearly at
-     low contrast in both light and dark themes. */
-.font-display.text-3xl,
-.font-display.text-4xl,
-.font-display.md\:text-3xl,
-.font-display.md\:text-6xl,
-.font-display.lg\:text-7xl {
-  font-weight: 200;
+/* ─────────────────────────────────────────────────────────────
+   Type system
+
+   Workbench is only for brand/accent moments. Space Grotesk carries
+   reading surfaces. Space Mono carries catalogue controls and labels.
+   The small set of roles below keeps the UI from accumulating one-off
+   type sizes, weights, and tracking values. ─────────────────────── */
+.font-wordmark {
+  font-family: 'Workbench', ui-monospace, monospace;
+  font-variation-settings: 'BLED' 24, 'SCAN' 10;
+  letter-spacing: 0.01em;
+  color: var(--text);
 }
-.font-display.text-xs.uppercase,
-.font-display.text-\[11px\],
-.font-display.text-\[10px\] {
+
+.type-wordmark-hero {
+  font-family: 'Workbench', ui-monospace, monospace;
+  font-variation-settings: 'BLED' 24, 'SCAN' 10;
+  font-size: clamp(4.25rem, 12vw, 10.5rem);
+  line-height: 0.78;
+  letter-spacing: -0.012em;
+}
+
+.type-wordmark-modal {
+  font-family: 'Workbench', ui-monospace, monospace;
+  font-variation-settings: 'BLED' 24, 'SCAN' 10;
+  font-size: clamp(3.25rem, 7vw, 6.25rem);
+  line-height: 0.8;
+  letter-spacing: -0.012em;
+}
+
+.type-wordmark-nav {
+  font-family: 'Workbench', ui-monospace, monospace;
+  font-variation-settings: 'BLED' 24, 'SCAN' 10;
+  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  line-height: 0.78;
+  letter-spacing: -0.01em;
+  transition:
+    color 180ms ease,
+    font-variation-settings 320ms ease;
+}
+
+.type-wordmark-nav:hover {
+  font-variation-settings: 'BLED' 34, 'SCAN' 18;
+}
+
+.type-title {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 300;
+  font-size: clamp(1.9rem, 3.2vw, 2.75rem);
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+}
+
+.type-panel-title {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 300;
+  font-size: clamp(1.65rem, 2vw, 2.05rem);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+
+.type-lede {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
   font-weight: 400;
+  font-size: clamp(1.05rem, 1.4vw, 1.25rem);
+  line-height: 1.55;
+  letter-spacing: -0.01em;
+}
+
+.type-body {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 0.98rem;
+  line-height: 1.65;
+  letter-spacing: -0.005em;
+}
+
+.type-small {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  letter-spacing: 0;
+}
+
+.type-meta {
+  font-family: 'Space Mono', ui-monospace, monospace;
+  font-weight: 400;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.type-control {
+  font-family: 'Space Mono', ui-monospace, monospace;
+  font-weight: 400;
+  font-size: 0.68rem;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.type-chip {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  letter-spacing: -0.005em;
 }
 
 #root {

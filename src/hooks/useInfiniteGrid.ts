@@ -17,8 +17,8 @@ const MIN_ITEMS_TO_LOOP = 4;
 
 /**
  * Hook to create a looping grid by repeating the base pattern.
- * Renders a 3x3 tile pattern around the current drag offset to give
- * a seamless wraparound illusion.
+ * Renders a 3x3 tile pattern around the current drag offset to keep
+ * the wall visually full as the visitor moves through the room.
  *
  * Special case: when the result set is small (<= 3), we skip the loop
  * entirely and just render the items once at their world positions.
@@ -47,20 +47,15 @@ export const useInfiniteGrid = ({
 
     const items: PortfolioItem[] = [];
 
-    // Create a 3x3 grid of tiles around current position
-    // This ensures seamless looping in any direction
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
         const tileX = currentTileX + dx;
         const tileY = currentTileY + dy;
 
-        // For each tile, add all base items with offset
         baseItems.forEach((item) => {
           items.push({
             ...item,
-            // Create unique ID for each tile instance
             id: `${item.id}-${tileX}-${tileY}`,
-            // Position in world space
             x: item.x + tileX * gridWidth,
             y: item.y + tileY * gridHeight,
           });

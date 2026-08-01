@@ -13,10 +13,10 @@ interface TopNavProps {
 }
 
 const SOURCE_OPTIONS: Array<{ id: SourceMode; label: string }> = [
-  { id: 'mixed', label: 'Mixed' },
-  { id: 'art-institute', label: 'Fine Art' },
+  { id: 'mixed', label: 'All' },
   { id: 'met-design', label: 'Design' },
-  { id: 'harvard', label: 'Photography' },
+  { id: 'art-institute', label: 'Art' },
+  { id: 'harvard', label: 'Photo' },
 ];
 
 const RefreshIcon = () => (
@@ -48,9 +48,9 @@ const MoonIcon = () => (
 );
 
 /**
- * Top navigation bar — wordmark, source filter, About link, theme
- * toggle, and refresh. Colors come from theme tokens (see index.css)
- * so the bar reads correctly in both light and dark modes.
+ * Top navigation bar — wordmark, About link, theme toggle, and refresh.
+ * Source choice is intentionally not primary navigation; the wall stays
+ * unified and source attribution lives in the detail view.
  */
 export const TopNav = ({
   sourceMode,
@@ -67,72 +67,25 @@ export const TopNav = ({
           a longer fade so even bright photographs don't bleed
           through enough to wash out the text. */}
       <div
-        className="absolute inset-x-0 top-0 h-36 md:h-28 pointer-events-none"
+        className="absolute inset-x-0 top-0 h-24 pointer-events-none"
         style={{
           background:
             'linear-gradient(to bottom, var(--scrim-top) 0%, var(--scrim-top) 55%, transparent 100%)',
         }}
       />
-      {/* Two-row layout on mobile (wordmark + icons up top, chips
-          horizontally scrollable below); single-row on md+. */}
-      <div className="relative flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-6 px-4 md:px-6 py-3 md:py-4 pointer-events-auto">
-        {/* Row 1 on mobile: wordmark + right cluster */}
-        <div className="flex items-center justify-between md:contents">
-          {/* Wordmark — always SLOWER STRANGER, uppercase, one style.
-              No italic, no period, no colon. Opens About on click. */}
-          <button
-            onClick={onAboutOpen}
-            className="font-display text-base tracking-[0.1em] uppercase transition-colors whitespace-nowrap shrink-0"
-            style={{ color: 'var(--text)' }}
-            title="About Slower Stranger"
-          >
-            SLOWER STRANGER
-          </button>
+      <div className="relative flex items-center justify-between gap-6 px-4 md:px-6 py-3 md:py-4 pointer-events-auto">
+        <button
+          onClick={onAboutOpen}
+          className="type-wordmark-nav uppercase transition-colors whitespace-nowrap shrink-0"
+          style={{ color: 'var(--text)' }}
+          title="About Slower Stranger"
+        >
+          SLOWER STRANGER
+        </button>
 
-          {/* Right cluster — About link hides on mobile (the wordmark
-              also opens About, so this is just a duplicate save for desktop) */}
-          <div className="flex items-center gap-2 shrink-0 md:order-last">
-            <button
-              onClick={onAboutOpen}
-              className="hidden md:inline-flex font-display tracking-wide text-sm transition-colors px-2"
-              style={{ color: 'var(--text-3)' }}
-            >
-              About
-            </button>
-            <motion.button
-              onClick={onThemeToggle}
-              className="w-9 h-9 flex items-center justify-center rounded-full transition-colors"
-              style={{ background: 'var(--surface)', color: 'var(--text-3)' }}
-              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-            </motion.button>
-            <motion.button
-              onClick={onRefresh}
-              className="w-9 h-9 flex items-center justify-center rounded-full transition-colors"
-              style={{ background: 'var(--surface)', color: 'var(--text-3)' }}
-              title="A new handful"
-              aria-label="Refresh for a new handful"
-              whileHover={{ rotate: 90 }}
-              transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-            >
-              <RefreshIcon />
-            </motion.button>
-          </div>
-        </div>
-
-        {/* Source filter — Displaay-style pills.
-            Active: solid filled (foreground colour as background, background colour as text)
-            Inactive: outlined, low-contrast text — promotes the active one.
-            On mobile, this row becomes horizontally scrollable so all
-            four pills are reachable on a narrow phone. */}
         <nav
-          aria-label="Filter by source"
-          className="flex items-center gap-1.5 overflow-x-auto md:overflow-visible -mx-4 px-4 md:mx-0 md:px-0 md:justify-center md:flex-1"
-          style={{ scrollbarWidth: 'none' }}
+          aria-label="Archive lens"
+          className="hidden md:flex items-center justify-center gap-1.5 flex-1"
         >
           {SOURCE_OPTIONS.map((opt) => {
             const active = opt.id === sourceMode;
@@ -141,7 +94,7 @@ export const TopNav = ({
                 key={opt.id}
                 onClick={() => onSourceChange(opt.id)}
                 aria-pressed={active}
-                className="px-3.5 md:px-4 py-1.5 rounded-full text-sm font-display tracking-wide transition-colors whitespace-nowrap shrink-0"
+                className="px-3.5 py-1.5 rounded-full type-control transition-colors whitespace-nowrap"
                 style={
                   active
                     ? {
@@ -149,8 +102,9 @@ export const TopNav = ({
                         color: 'var(--bg)',
                       }
                     : {
-                        color: 'var(--text-2)',
-                        border: '1px solid var(--border-strong)',
+                        color: 'var(--text-3)',
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface)',
                       }
                 }
               >
@@ -159,7 +113,70 @@ export const TopNav = ({
             );
           })}
         </nav>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={onAboutOpen}
+            className="hidden md:inline-flex type-small transition-colors px-2"
+            style={{ color: 'var(--text-3)' }}
+          >
+            About
+          </button>
+          <motion.button
+            onClick={onThemeToggle}
+            className="w-9 h-9 flex items-center justify-center rounded-full transition-colors"
+            style={{ background: 'var(--surface)', color: 'var(--text-3)' }}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+          </motion.button>
+          <motion.button
+            onClick={onRefresh}
+            className="w-9 h-9 flex items-center justify-center rounded-full transition-colors"
+            style={{ background: 'var(--surface)', color: 'var(--text-3)' }}
+            title="A new handful"
+            aria-label="Refresh for a new handful"
+            whileHover={{ rotate: 90 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+          >
+            <RefreshIcon />
+          </motion.button>
+        </div>
       </div>
+      <nav
+        aria-label="Archive lens"
+        className="relative md:hidden flex items-center gap-1.5 overflow-x-auto px-4 pb-3 pointer-events-auto"
+        style={{ scrollbarWidth: 'none' }}
+      >
+        {SOURCE_OPTIONS.map((opt) => {
+          const active = opt.id === sourceMode;
+          return (
+            <button
+              key={opt.id}
+              onClick={() => onSourceChange(opt.id)}
+              aria-pressed={active}
+              className="px-3 py-1.5 rounded-full type-control transition-colors whitespace-nowrap shrink-0"
+              style={
+                active
+                  ? {
+                      background: 'var(--text)',
+                      color: 'var(--bg)',
+                    }
+                  : {
+                      color: 'var(--text-3)',
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface)',
+                    }
+              }
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </nav>
     </header>
   );
 };

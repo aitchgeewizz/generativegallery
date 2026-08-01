@@ -11,8 +11,11 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        display: ['"Crimson Pro"', 'serif'],
-        body: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        wordmark: ['"Workbench"', 'monospace'],
+        display: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
+        ui: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
+        body: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
+        mono: ['"Space Mono"', 'ui-monospace', 'monospace'],
       },
     },
   },

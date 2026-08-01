@@ -16,6 +16,15 @@ const stripHtml = (html: string): string =>
     .replace(/&quot;/g, '"')
     .replace(/&#039;/g, "'");
 
+const cleanRecordText = (value?: string): string | null => {
+  if (!value || value === 'null') return null;
+  const stripped = stripHtml(value).replace(/\s+/g, ' ').trim();
+  return stripped.length > 0 ? stripped : null;
+};
+
+const getDefaultExpandedSections = (hasArtist: boolean) =>
+  new Set(['artwork', 'details', ...(hasArtist ? ['artist', 'related'] : [])]);
+
 interface ArtworkDetailProps {
   item: PortfolioItem | null;
   allItems: PortfolioItem[];
@@ -53,7 +62,9 @@ export const ArtworkDetail = ({
   const [isPanning, setIsPanning] = useState(false);
   const [direction, setDirection] = useState(0);
   const [mainImageError, setMainImageError] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    getDefaultExpandedSections(true),
+  );
   // Hide the right panel for an image-only "full view". On desktop:
   // toggled by an icon or F key. On mobile: toggled by tapping the
   // image so visitors can swipe through pieces uninterrupted.
@@ -94,9 +105,24 @@ export const ArtworkDetail = ({
     setMainImageError(false);
     setZoom(1);
     setPanOffset({ x: 0, y: 0 });
-    setExpandedSections(new Set());
+    setExpandedSections(getDefaultExpandedSections(Boolean(artistName)));
     if (item) enrichment.reset();
-  }, [item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [item?.id, artistName]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!item) return;
+    enrichment.loadArtworkContext();
+    if (artistName) {
+      enrichment.loadArtistInfo();
+      enrichment.loadRelatedWorks();
+    }
+  }, [
+    item?.id,
+    artistName,
+    enrichment.loadArtistInfo,
+    enrichment.loadArtworkContext,
+    enrichment.loadRelatedWorks,
+  ]);
 
   // Auto-scroll current thumbnail into view
   useEffect(() => {
@@ -208,17 +234,28 @@ export const ArtworkDetail = ({
   // Download for public-domain items
   const handleDownload = useCallback(async () => {
     if (!item?.imageUrl) return;
+    const filename = `${item.title.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}.jpg`;
     try {
-      const response = await fetch(item.imageUrl);
+      const response = await fetch(item.imageUrl, { mode: 'cors' });
+      if (!response.ok) throw new Error('Image request failed');
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${item.title.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}.jpg`;
+      a.download = filename;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
-      window.open(item.imageUrl, '_blank');
+      const a = document.createElement('a');
+      a.href = item.imageUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
   }, [item?.imageUrl, item?.title]);
 
@@ -228,8 +265,9 @@ export const ArtworkDetail = ({
   if (!item) return null;
 
   // Short body text for the always-visible blurb
-  const rawShortText = item.galleryText || item.shortDescription || item.labelText;
-  const shortText = rawShortText ? stripHtml(rawShortText) : null;
+  const rawShortText =
+    item.galleryText || item.labelText || item.justification || item.shortDescription;
+  const shortText = cleanRecordText(rawShortText);
 
   const creativeParticipants =
     item.participants?.filter((p) => {
@@ -395,13 +433,13 @@ export const ArtworkDetail = ({
                   border: '1px solid var(--border)',
                 }}
               >
-                <h2 className="text-xl font-display leading-tight mb-3" style={{ color: 'var(--text-2)' }}>
+                <h2 className="type-panel-title mb-3" style={{ color: 'var(--text-2)' }}>
                   {item.title}
                 </h2>
                 {item.description && (
-                  <p className="text-sm" style={{ color: 'var(--text-3)' }}>{item.description}</p>
+                  <p className="type-small" style={{ color: 'var(--text-3)' }}>{item.description}</p>
                 )}
-                <p className="text-xs mt-6" style={{ color: 'var(--text-3)' }}>Image unavailable</p>
+                <p className="type-meta mt-6" style={{ color: 'var(--text-3)' }}>Image unavailable</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -414,7 +452,7 @@ export const ArtworkDetail = ({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute top-6 text-xs font-display tracking-wide z-20 pointer-events-none"
+            className="absolute top-6 type-small z-20 pointer-events-none"
             style={{
               left: isMobile || panelHidden ? '50%' : `calc(50% - ${PANEL_W / 2}px)`,
               transform: 'translateX(-50%)',
@@ -488,7 +526,7 @@ export const ArtworkDetail = ({
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </button>
-            <span className="text-xs font-display tabular-nums tracking-[0.18em] uppercase">
+            <span className="type-meta tabular-nums">
               {currentIndex >= 0 ? currentIndex + 1 : '?'} / {navigationItems.length}
             </span>
             <button
@@ -617,7 +655,7 @@ export const ArtworkDetail = ({
 
           {/* Counter */}
           <span
-            className="text-[11px] font-display tabular-nums tracking-wide mt-2 shrink-0"
+            className="type-meta tabular-nums mt-2 shrink-0"
             style={{ color: 'var(--text-3)' }}
           >
             {currentIndex >= 0 ? currentIndex + 1 : '?'}/{navigationItems.length}
@@ -685,7 +723,7 @@ export const ArtworkDetail = ({
               {artistName && (
                 <button
                   onClick={() => handleSearchAllCollections(artistName, 'maker')}
-                  className="text-sm font-display tracking-[0.18em] uppercase transition-colors block text-left underline-offset-4 hover:underline mb-3"
+                  className="type-meta transition-colors block text-left underline-offset-4 hover:underline mb-3"
                   style={{ color: 'var(--text-2)' }}
                 >
                   {artistName}
@@ -693,19 +731,19 @@ export const ArtworkDetail = ({
               )}
 
               {/* Title — roman, not italic (Hannah's call) */}
-              <h1 className="text-3xl font-display leading-tight" style={{ color: 'var(--text)' }}>
+              <h1 className="type-panel-title" style={{ color: 'var(--text)' }}>
                 {item.title}
               </h1>
 
               {/* Medium / one-line metadata */}
               {item.medium && (
-                <p className="text-base mt-3 font-display" style={{ color: 'var(--text-2)' }}>{item.medium}</p>
+                <p className="type-body mt-4" style={{ color: 'var(--text-2)' }}>{item.medium}</p>
               )}
 
               {/* Collection source */}
               {item.collectionSource && (
                 <p
-                  className="text-xs tracking-[0.18em] uppercase font-display mt-5"
+                  className="type-meta mt-5"
                   style={{ color: 'var(--text-3)' }}
                 >
                   {item.collectionSource}
@@ -716,7 +754,7 @@ export const ArtworkDetail = ({
             {/* Short description */}
             {shortText && (
               <p
-                className="mt-6 text-base leading-relaxed font-display"
+                className="mt-6 type-body"
                 style={{ color: 'var(--text-2)' }}
               >
                 {shortText}
@@ -727,7 +765,7 @@ export const ArtworkDetail = ({
             {tags.length > 0 && (
               <div className="mt-7">
                 <p
-                  className="text-xs uppercase tracking-[0.18em] font-display mb-3"
+                  className="type-meta mb-3"
                   style={{ color: 'var(--text-3)' }}
                 >
                   Follow a thread
@@ -737,7 +775,7 @@ export const ArtworkDetail = ({
                     <button
                       key={i}
                       onClick={() => handleSearchAllCollections(tag.label, tag.category)}
-                      className="px-3 py-1.5 rounded-full text-sm font-display tracking-wide transition-colors"
+                      className="px-3 py-1.5 rounded-full type-chip transition-colors"
                       style={{
                         color: 'var(--text-2)',
                         background: 'var(--surface)',
@@ -759,7 +797,59 @@ export const ArtworkDetail = ({
             {/* Divider */}
             <div className="h-px my-8" style={{ background: 'var(--border)' }} />
 
-            {/* ── Enrichment sections (on-demand) ── */}
+            {/* Source actions — practical next steps should be easy to
+                reach before the deeper enrichment/metadata sections. */}
+            <section className="mb-3">
+              <div
+                className="rounded-md p-4"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <p className="type-small mb-3" style={{ color: 'var(--text-3)' }}>
+                  {copyrightText}
+                </p>
+                <div className="flex flex-wrap items-center gap-4">
+                  {item.url && (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 transition-colors underline underline-offset-4 type-body"
+                      style={{ color: 'var(--text)' }}
+                    >
+                      Source record
+                      <ExternalArrowIcon />
+                    </a>
+                  )}
+                  {canDownload && (
+                    <button
+                      onClick={handleDownload}
+                      className="inline-flex items-center gap-1.5 transition-colors underline underline-offset-4 type-body"
+                      style={{ color: 'var(--text)' }}
+                    >
+                      Download image
+                      <DownloadIcon />
+                    </button>
+                  )}
+                  {item.imageUrl && (
+                    <a
+                      href={item.imageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 transition-colors underline underline-offset-4 type-body"
+                      style={{ color: 'var(--text)' }}
+                    >
+                      Open image
+                      <ExternalArrowIcon />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {/* ── Information sections ── */}
             <div className="space-y-1">
               {/* About the Artist */}
               {artistName && (
@@ -770,7 +860,14 @@ export const ArtworkDetail = ({
                 >
                   {enrichment.artistLoading && <SkeletonText lines={4} />}
                   {enrichment.artistFetched && !enrichment.artistInfo && !enrichment.artistLoading && (
-                    <NoEnrichment query={`${artistName} artist`} label="Search the web" />
+                    <QuietEmpty
+                      title="No short biography surfaced in the enrichment sources."
+                      body="The museum record still gives us the credited name, and the source catalogue is usually the best place to keep following the trail."
+                    >
+                      <ExternalLink href={`https://www.google.com/search?q=${encodeURIComponent(`${artistName} artist`)}`}>
+                        Search the web
+                      </ExternalLink>
+                    </QuietEmpty>
                   )}
                   {enrichment.artistInfo && (
                     <div className="space-y-4">
@@ -783,9 +880,9 @@ export const ArtworkDetail = ({
                           />
                         )}
                         <div className="min-w-0">
-                          <p className="text-base font-display" style={{ color: 'var(--text)' }}>{artistName}</p>
+                          <p className="type-body" style={{ color: 'var(--text)' }}>{artistName}</p>
                           {(enrichment.artistInfo.born || enrichment.artistInfo.died) && (
-                            <p className="text-sm mt-0.5 font-display" style={{ color: 'var(--text-2)' }}>
+                            <p className="type-small mt-0.5" style={{ color: 'var(--text-2)' }}>
                               {enrichment.artistInfo.born && enrichment.artistInfo.died
                                 ? `Born ${enrichment.artistInfo.born}, died ${enrichment.artistInfo.died}`
                                 : enrichment.artistInfo.born
@@ -794,14 +891,14 @@ export const ArtworkDetail = ({
                             </p>
                           )}
                           {enrichment.artistInfo.nationality && (
-                            <p className="text-sm mt-0.5 font-display" style={{ color: 'var(--text-2)' }}>
+                            <p className="type-small mt-0.5" style={{ color: 'var(--text-2)' }}>
                               {enrichment.artistInfo.nationality}
                             </p>
                           )}
                         </div>
                       </div>
                       {enrichment.artistInfo.summary && (
-                        <p className="text-base leading-relaxed font-display" style={{ color: 'var(--text-2)' }}>
+                        <p className="type-body" style={{ color: 'var(--text-2)' }}>
                           {enrichment.artistInfo.summary}
                         </p>
                       )}
@@ -823,14 +920,11 @@ export const ArtworkDetail = ({
               >
                 {enrichment.artworkLoading && <SkeletonText lines={3} />}
                 {enrichment.artworkFetched && !enrichment.artworkContext && !enrichment.artworkLoading && (
-                  <NoEnrichment
-                    query={`${artistName ? artistName + ' ' : ''}${item.title} artwork`}
-                    label="Search the web"
-                  />
+                  <RecordFallback item={item} artistName={artistName} />
                 )}
                 {enrichment.artworkContext && (
                   <div className="space-y-3">
-                    <p className="text-base leading-relaxed font-display" style={{ color: 'var(--text-2)' }}>
+                    <p className="type-body" style={{ color: 'var(--text-2)' }}>
                       {enrichment.artworkContext.summary}
                     </p>
                     {enrichment.artworkContext.wikiUrl && (
@@ -859,9 +953,18 @@ export const ArtworkDetail = ({
                     </div>
                   )}
                   {enrichment.relatedFetched && enrichment.relatedWorks.length === 0 && !enrichment.relatedLoading && (
-                    <p className="text-base font-display" style={{ color: 'var(--text-3)' }}>
-                      No other works found in museum collections.
-                    </p>
+                    <QuietEmpty
+                      title="No extra museum matches surfaced yet."
+                      body="This usually means the credited name is sparse, ambiguous, or appears in the catalogue in a different form."
+                    >
+                      <button
+                        onClick={() => handleSearchAllCollections(artistName, 'maker')}
+                        className="type-small underline-offset-4 hover:underline transition-colors"
+                        style={{ color: 'var(--text-2)' }}
+                      >
+                        Search this maker across the room
+                      </button>
+                    </QuietEmpty>
                   )}
                   {enrichment.relatedWorks.length > 0 && (
                     <div
@@ -885,14 +988,14 @@ export const ArtworkDetail = ({
                             />
                           </div>
                           <p
-                            className="text-sm mt-2 line-clamp-2 leading-snug font-display transition-colors"
+                            className="type-small mt-2 line-clamp-2 transition-colors"
                             style={{ color: 'var(--text)' }}
                           >
                             {work.title}
                           </p>
                           {work.date && (
                             <p
-                              className="text-xs mt-0.5 font-display"
+                              className="type-meta mt-0.5"
                               style={{ color: 'var(--text-3)' }}
                             >
                               {work.date}
@@ -905,13 +1008,13 @@ export const ArtworkDetail = ({
                 </ExpandableSection>
               )}
 
-              {/* Full metadata — collapsed by default since the basics are above */}
+              {/* Full museum metadata at the bottom of the panel. */}
               <ExpandableSection
                 title="Details"
                 open={expandedSections.has('details')}
                 onToggle={() => toggleSection('details')}
               >
-                <div className="space-y-5 text-base">
+                <div className="space-y-5 type-body">
                   {creativeParticipants.length > 1 && (
                     <Field label={creativeParticipants.length === 1 ? 'Creator' : 'People'}>
                       <div className="space-y-1.5">
@@ -920,54 +1023,37 @@ export const ArtworkDetail = ({
                             <span style={{ color: 'var(--text-3)' }}>{p.role}: </span>
                             <span style={{ color: 'var(--text) ' }}>{p.name}</span>
                             {p.date && (
-                              <span className="text-sm ml-1" style={{ color: 'var(--text-3)' }}>({p.date})</span>
+                              <span className="type-small ml-1" style={{ color: 'var(--text-3)' }}>({p.date})</span>
                             )}
                           </div>
                         ))}
                       </div>
                     </Field>
                   )}
+                  {item.date && <Field label="Date">{item.date}</Field>}
                   {item.objectType && <Field label="Object Type">{item.objectType}</Field>}
+                  {item.classificationTitles?.length ? (
+                    <Field label="Classification">{item.classificationTitles.join(', ')}</Field>
+                  ) : null}
+                  {item.culture && <Field label="Culture">{item.culture}</Field>}
+                  {item.department && <Field label="Department">{item.department}</Field>}
                   {item.dimensions && <Field label="Dimensions">{item.dimensions}</Field>}
-                  {item.markings && item.markings !== 'null' && (
-                    <Field label="Markings">{item.markings}</Field>
+                  {cleanRecordText(item.provenance) && (
+                    <Field label="Provenance">{cleanRecordText(item.provenance)}</Field>
                   )}
-                  {item.signed && item.signed !== 'null' && (
-                    <Field label="Signed">{item.signed}</Field>
+                  {cleanRecordText(item.markings) && (
+                    <Field label="Markings">{cleanRecordText(item.markings)}</Field>
                   )}
-                  {item.inscribed && item.inscribed !== 'null' && (
-                    <Field label="Inscribed">{item.inscribed}</Field>
+                  {cleanRecordText(item.signed) && (
+                    <Field label="Signed">{cleanRecordText(item.signed)}</Field>
+                  )}
+                  {cleanRecordText(item.inscribed) && (
+                    <Field label="Inscribed">{cleanRecordText(item.inscribed)}</Field>
                   )}
                   {item.creditLine && <Field label="Credit">{item.creditLine}</Field>}
+                  {item.accessionNumber && <Field label="Accession">{item.accessionNumber}</Field>}
                 </div>
               </ExpandableSection>
-            </div>
-
-            {/* Bottom links: copyright + view original + download */}
-            <div className="mt-10 pt-6 text-sm font-display" style={{ borderTop: '1px solid var(--border)' }}>
-              <p className="mb-3" style={{ color: 'var(--text-3)' }}>{copyrightText}</p>
-              <div className="flex items-center gap-5">
-                {item.url && (
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="transition-colors underline-offset-4 hover:underline text-base"
-                    style={{ color: 'var(--text)' }}
-                  >
-                    View at source
-                  </a>
-                )}
-                {canDownload && (
-                  <button
-                    onClick={handleDownload}
-                    className="transition-colors underline-offset-4 hover:underline text-base"
-                    style={{ color: 'var(--text)' }}
-                  >
-                    Download image
-                  </button>
-                )}
-              </div>
             </div>
           </div>
         </motion.aside>
@@ -996,7 +1082,7 @@ const ExpandableSection = ({
       className="w-full flex items-center justify-between py-3.5 text-left group"
     >
       <span
-        className="text-xs uppercase tracking-[0.18em] font-display transition-colors"
+        className="type-meta transition-colors"
         style={{ color: 'var(--text-2)' }}
       >
         {title}
@@ -1035,12 +1121,12 @@ const ExpandableSection = ({
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div>
     <p
-      className="text-xs uppercase tracking-[0.18em] font-display mb-1"
+      className="type-meta mb-1"
       style={{ color: 'var(--text-3)' }}
     >
       {label}
     </p>
-    <p className="font-display" style={{ color: 'var(--text)' }}>{children}</p>
+    <p className="type-body" style={{ color: 'var(--text)' }}>{children}</p>
   </div>
 );
 
@@ -1056,24 +1142,109 @@ const SkeletonText = ({ lines = 3 }: { lines?: number }) => (
   </div>
 );
 
-const NoEnrichment = ({ query, label }: { query: string; label: string }) => (
+const QuietEmpty = ({
+  title,
+  body,
+  children,
+}: {
+  title: string;
+  body: string;
+  children?: React.ReactNode;
+}) => (
   <div className="space-y-3">
-    <p className="text-base font-display" style={{ color: 'var(--text-3)' }}>
-      No additional information available.
-    </p>
-    <a
-      href={`https://www.google.com/search?q=${encodeURIComponent(query)}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 text-sm transition-colors"
-      style={{ color: 'var(--text-2)' }}
-    >
-      {label}
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M7 17L17 7M17 7H7M17 7V17" />
-      </svg>
-    </a>
+    <div className="space-y-1.5">
+      <p className="type-body" style={{ color: 'var(--text-2)' }}>{title}</p>
+      <p className="type-small" style={{ color: 'var(--text-3)' }}>{body}</p>
+    </div>
+    {children && <div>{children}</div>}
   </div>
+);
+
+const RecordFallback = ({
+  item,
+  artistName,
+}: {
+  item: PortfolioItem;
+  artistName: string | null;
+}) => {
+  const facts = [
+    item.date && `dated ${item.date}`,
+    item.objectType && `catalogued as ${item.objectType}`,
+    item.medium && `made in ${item.medium}`,
+    item.culture && `associated with ${item.culture}`,
+    item.collectionSource && `held by ${item.collectionSource}`,
+  ].filter(Boolean);
+
+  const searchQuery = `${artistName ? artistName + ' ' : ''}${item.title} artwork`;
+
+  return (
+    <div className="space-y-4">
+      <QuietEmpty
+        title="This record does not include a fuller museum note."
+        body="Rather than inventing a story, Slower Stranger keeps the archive honest and shows the clues the catalogue gives us."
+      />
+
+      {facts.length > 0 && (
+        <div
+          className="rounded-md p-4"
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          <p className="type-meta mb-2" style={{ color: 'var(--text-3)' }}>
+            What the record tells us
+          </p>
+          <p className="type-body" style={{ color: 'var(--text-2)' }}>
+            {facts.join('; ')}.
+          </p>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-4">
+        {item.url && (
+          <ExternalLink href={item.url}>
+            View source record
+          </ExternalLink>
+        )}
+        <ExternalLink href={`https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`}>
+          Search the web
+        </ExternalLink>
+      </div>
+    </div>
+  );
+};
+
+const ExternalArrowIcon = () => (
+  <svg
+    width="11"
+    height="11"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M7 17L17 7M17 7H7M17 7V17" />
+  </svg>
+);
+
+const DownloadIcon = () => (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+  </svg>
 );
 
 const ExternalLink = ({ href, children }: { href: string; children: React.ReactNode }) => (
@@ -1081,12 +1252,10 @@ const ExternalLink = ({ href, children }: { href: string; children: React.ReactN
     href={href}
     target="_blank"
     rel="noopener noreferrer"
-    className="inline-flex items-center gap-1.5 text-sm transition-colors underline-offset-4 hover:underline"
+    className="inline-flex items-center gap-1.5 type-small transition-colors underline-offset-4 hover:underline"
     style={{ color: 'var(--text-2)' }}
   >
     {children}
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M7 17L17 7M17 7H7M17 7V17" />
-    </svg>
+    <ExternalArrowIcon />
   </a>
 );

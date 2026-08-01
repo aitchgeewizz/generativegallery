@@ -35,7 +35,7 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
           onClick={onClose}
         >
           <motion.article
-            className="relative w-full max-w-2xl mx-4 p-8 md:p-12 rounded-lg font-display"
+            className="relative w-full max-w-3xl mx-4 p-8 md:p-12 rounded-lg type-body"
             style={{
               background: 'var(--bg)',
               color: 'var(--text-2)',
@@ -59,47 +59,47 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
             </button>
 
             <h2
-              className="text-2xl md:text-3xl tracking-tight leading-tight uppercase"
+              className="type-wordmark-modal uppercase"
               style={{ color: 'var(--text)' }}
             >
               SLOWER STRANGER
             </h2>
 
             <p
-              className="mt-6 text-base md:text-lg leading-snug"
+              className="mt-10 type-lede max-w-2xl"
               style={{ color: 'var(--text-2)' }}
             >
               Most design inspiration online is a firehose of right now. This is meant to slow you down. Appreciate the work. Maybe see something unexpected.
             </p>
 
             <p
-              className="mt-5 text-sm md:text-base leading-relaxed"
+              className="mt-6 type-body max-w-2xl"
               style={{ color: 'var(--text-2)' }}
             >
               It&rsquo;s a browser that pulls from public museum APIs (Cooper Hewitt, Harvard, the Art Institute of Chicago) and throws a handful of pieces at you. Take them in. Sit with them. Read more if something stops you, or just be in awe of the work.
             </p>
 
             <h3
-              className="mt-10 text-[11px] uppercase tracking-[0.18em]"
+              className="mt-12 type-meta"
               style={{ color: 'var(--text-3)' }}
             >
               How this came together
             </h3>
             <p
-              className="mt-3 text-sm md:text-base leading-relaxed"
+              className="mt-4 type-body max-w-2xl"
               style={{ color: 'var(--text-2)' }}
             >
               I&rsquo;d been playing with a bunch of new tools and this project pushed me further than the others. As a designer who never used to touch code, I made it into the terminal. Into corners of Claude Code I hadn&rsquo;t used before. I wanted to go beyond a static website. Build something with APIs and see if I could also explore new and interesting layouts and designs. Something that didn&rsquo;t look like the generic AI-coded layouts everywhere right now. Or a regular archive site, where you had to know what you were looking for.
             </p>
             <p
-              className="mt-4 text-sm md:text-base leading-relaxed"
+              className="mt-5 type-body max-w-2xl"
               style={{ color: 'var(--text-2)' }}
             >
               I made this because I craved seeing great things. Outside the regular algorithms of online inspiration sites. This doesn&rsquo;t beat going out and seeing it &ldquo;for real life&rdquo; as Bluey would say. But it&rsquo;s an attempt to bring some of that feeling back online, on the days I can&rsquo;t get out there.
             </p>
 
             <p
-              className="mt-10 text-xs tracking-wide leading-relaxed"
+              className="mt-14 type-small max-w-2xl"
               style={{ color: 'var(--text-3)' }}
             >
               Built by{' '}

@@ -87,12 +87,12 @@ const fetchArtworksByIds = async (ids: number[]): Promise<ArtworkData[]> => {
  */
 export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkData[]> => {
   try {
-    console.log(`🎨 Fetching ${count} fresh artworks from Art Institute API...`);
+    console.log(`Fetching ${count} fresh artworks from Art Institute API...`);
 
     // Pick 3 random themes for variety
     const shuffledThemes = [...CURATED_THEMES].sort(() => Math.random() - 0.5);
     const selectedThemes = shuffledThemes.slice(0, 3);
-    console.log(`🎯 Themes: ${selectedThemes.join(', ')}`);
+    console.log(`Themes: ${selectedThemes.join(', ')}`);
 
     // Search all themes in parallel to get IDs
     const searchResults = await Promise.allSettled(
@@ -126,7 +126,7 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
     const allIds = [...idSet].sort(() => Math.random() - 0.5);
     const idsToFetch = allIds.slice(0, Math.max(count * 8, 60));
 
-    console.log(`📦 Found ${idSet.size} unique IDs, fetching ${idsToFetch.length} details in bulk...`);
+    console.log(`Found ${idSet.size} unique IDs, fetching ${idsToFetch.length} details in bulk...`);
 
     // Fetch details in bulk batches (40 per request instead of 1 per request)
     const batchSize = 40;
@@ -139,15 +139,15 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
 
       const qualityCount = artworks.filter(isQualityArtwork).length;
       if (qualityCount >= count) {
-        console.log(`✅ Got enough quality artworks (${qualityCount})`);
+        console.log(`Got enough quality artworks (${qualityCount})`);
         break;
       }
     }
 
-    console.log(`📊 Fetched ${artworks.length} artworks total`);
+    console.log(`Fetched ${artworks.length} artworks total`);
 
     const filtered = artworks.filter(isQualityArtwork);
-    console.log(`✅ After filtering: ${filtered.length} quality artworks`);
+    console.log(`After filtering: ${filtered.length} quality artworks`);
 
     // Sort by quality — prioritize paintings/sculptures, then boosted, then vibrant
     const classificationScore = (item: ArtworkData): number => {
@@ -176,11 +176,11 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
       throw new Error('No quality artworks found');
     }
 
-    console.log(`✨ Returning ${final.length} fresh curated artworks`);
+    console.log(`Returning ${final.length} fresh curated artworks`);
     return final;
 
   } catch (error) {
-    console.error('❌ API fetch failed:', error);
+    console.error('API fetch failed:', error);
     throw error;
   }
 };
@@ -194,7 +194,7 @@ export const searchArtworksByTag = async (
   count: number = 32
 ): Promise<ArtworkData[]> => {
   try {
-    console.log(`🔍 Searching Art Institute for tag: "${tag}" (need ${count} results)`);
+    console.log(`Searching Art Institute for tag: "${tag}" (need ${count} results)`);
 
     // Search with extra limit to ensure enough quality results after filtering
     const searchResponse = await fetch(
@@ -215,7 +215,7 @@ export const searchArtworksByTag = async (
       return [];
     }
 
-    console.log(`📦 Found ${artworkIds.length} potential artworks, fetching details in bulk...`);
+    console.log(`Found ${artworkIds.length} potential artworks, fetching details in bulk...`);
 
     // Fetch in bulk batches
     const batchSize = 40;
@@ -240,7 +240,7 @@ export const searchArtworksByTag = async (
       return true;
     });
 
-    console.log(`✅ After quality filtering: ${filtered.length} artworks`);
+    console.log(`After quality filtering: ${filtered.length} artworks`);
 
     // Prioritize boosted artworks and vibrant images
     const sorted = filtered.sort((a, b) => {
@@ -250,11 +250,11 @@ export const searchArtworksByTag = async (
     });
 
     const final = sorted.slice(0, count);
-    console.log(`✨ Returning ${final.length} curated artworks for tag "${tag}"`);
+    console.log(`Returning ${final.length} curated artworks for tag "${tag}"`);
 
     return final;
   } catch (error) {
-    console.error('❌ Tag search failed:', error);
+    console.error('Tag search failed:', error);
     return [];
   }
 };
