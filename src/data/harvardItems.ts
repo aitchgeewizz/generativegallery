@@ -1,21 +1,16 @@
-import { PortfolioItem, ShapeType } from '../types';
+import { PortfolioItem } from '../types';
 import {
   fetchHarvardArtworks,
+  fetchHarvardDesignWorks,
   searchHarvardByTag,
   getHarvardImageUrl,
   formatHarvardArtwork,
   HarvardArtObject,
+  HARVARD_TILE_SIZE,
+  HARVARD_DETAIL_SIZE,
 } from '../services/harvardMuseumsApi';
 
-const shapes: ShapeType[] = ['box', 'sphere', 'torus', 'cone', 'cylinder', 'octahedron'];
 
-// Color palette
-const colors = [
-  '#00D632', '#00FF87', '#00A3FF', '#0066FF', '#8B5CF6', '#A855F7',
-  '#EC4899', '#FF006E', '#F59E0B', '#FF5C00', '#EF4444', '#FF0040',
-  '#10B981', '#00F5A0', '#14B8A6', '#06B6D4', '#6366F1', '#4F46E5',
-  '#F97316', '#FBBF24',
-];
 
 /**
  * Generate grid layout positions
@@ -47,22 +42,24 @@ const generateGridPositions = (count: number) => {
 const convertHarvardToPortfolioItem = (
   artwork: HarvardArtObject,
   index: number,
-  positions: Array<{ x: number; y: number }>
+  positions: Array<{ x: number; y: number }>,
+  sourceLabel: string = 'Harvard Photography'
 ): PortfolioItem => {
-  const imageUrl = getHarvardImageUrl(artwork, 843);
-  const thumbnailUrl = getHarvardImageUrl(artwork, 400);
+  const imageUrl = getHarvardImageUrl(artwork, HARVARD_DETAIL_SIZE);
+  const thumbnailUrl = getHarvardImageUrl(artwork, HARVARD_TILE_SIZE);
+  const sourceImage = artwork.images?.[0];
 
   return {
     id: index,
     x: positions[index].x,
     y: positions[index].y,
-    shape: shapes[Math.floor(Math.random() * shapes.length)],
-    color: colors[Math.floor(Math.random() * colors.length)],
     title: artwork.title,
     description: formatHarvardArtwork(artwork),
     imageUrl: imageUrl || undefined,
     thumbnailUrl: thumbnailUrl || undefined,
-    collectionSource: 'Harvard Photography',
+    imageWidth: sourceImage?.width,
+    imageHeight: sourceImage?.height,
+    collectionSource: sourceLabel,
     url: artwork.url,
     date: artwork.dated || artwork.century,
 
@@ -96,14 +93,14 @@ const convertHarvardToPortfolioItem = (
  * Generate Harvard Art Museums items
  * Fetches 32 items from Harvard's collection
  */
-export const generateHarvardItems = async (count: number = 32): Promise<PortfolioItem[]> => {
+export const generateHarvardItems = async (count: number = 32, signal?: AbortSignal): Promise<PortfolioItem[]> => {
   const positions = generateGridPositions(count);
 
   try {
     console.log(`Generating ${count} Harvard Art Museums items...`);
 
     // Fetch artworks from Harvard API
-    const artworks = await fetchHarvardArtworks(count);
+    const artworks = await fetchHarvardArtworks(count, signal);
 
     if (artworks.length === 0) {
       console.warn('No artworks received from Harvard API');
@@ -188,6 +185,50 @@ export const searchHarvardItemsByTag = async (
     return items;
   } catch (error) {
     console.error('Harvard tag search failed:', error);
+    return [];
+  }
+};
+
+/**
+ * Busch-Reisinger / Bauhaus design thread. Feeds the mixed wall via its
+ * own registry entry; the Photography pill stays pure photography.
+ */
+export const generateHarvardDesignItems = async (count: number = 32, signal?: AbortSignal): Promise<PortfolioItem[]> => {
+  const positions = generateGridPositions(count);
+
+  try {
+    const artworks = await fetchHarvardDesignWorks(count, signal);
+    if (artworks.length === 0) return [];
+
+    const withImages = artworks.filter(a => {
+      const url = getHarvardImageUrl(a, 843);
+      return typeof url === 'string' && url.length > 0;
+    });
+
+    return withImages.map((artwork, i) =>
+      convertHarvardToPortfolioItem(artwork, i, positions, 'Harvard Art Museums, Busch-Reisinger')
+    );
+  } catch (error) {
+    console.error('Failed to generate Harvard design items:', error);
+    return [];
+  }
+};
+
+export const searchHarvardDesignItemsByTag = async (
+  tag: string,
+  count: number = 32
+): Promise<PortfolioItem[]> => {
+  try {
+    // classification=null searches the whole collection, not just Photographs.
+    const artworks = await searchHarvardByTag(tag, count, null);
+    if (artworks.length === 0) return [];
+
+    const positions = generateGridPositions(artworks.length);
+    return artworks.map((artwork, i) =>
+      convertHarvardToPortfolioItem(artwork, i, positions, 'Harvard Art Museums, Busch-Reisinger')
+    );
+  } catch (error) {
+    console.error('Harvard design tag search failed:', error);
     return [];
   }
 };

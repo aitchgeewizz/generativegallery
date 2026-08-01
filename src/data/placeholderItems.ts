@@ -1,15 +1,14 @@
-import { PortfolioItem, ShapeType } from '../types';
-import { fetchRandomArtworks, searchArtworksByTag, getImageUrl } from '../services/artInstituteApi';
+import { PortfolioItem } from '../types';
+import {
+  fetchRandomArtworks,
+  searchArtworksByTag,
+  getImageUrl,
+  AIC_TILE_SIZE,
+  AIC_DETAIL_SIZE,
+  AIC_FALLBACK_SIZE,
+} from '../services/artInstituteApi';
 
-const shapes: ShapeType[] = ['box', 'sphere', 'torus', 'cone', 'cylinder', 'octahedron'];
 
-// Enhanced vibrant color palette inspired by Cash App and modern design
-const colors = [
-  '#00D632', '#00FF87', '#00A3FF', '#0066FF', '#8B5CF6', '#A855F7',
-  '#EC4899', '#FF006E', '#F59E0B', '#FF5C00', '#EF4444', '#FF0040',
-  '#10B981', '#00F5A0', '#14B8A6', '#06B6D4', '#6366F1', '#4F46E5',
-  '#F97316', '#FBBF24',
-];
 
 /**
  * Generate grid layout positions
@@ -83,14 +82,14 @@ export const getGridDimensions = () => {
  * RELIABLE: Uses caching and proper error handling
  * NO FALLBACK to broken local images - API must succeed
  */
-export const generateArtworkItems = async (count: number = 32): Promise<PortfolioItem[]> => {
+export const generateArtworkItems = async (count: number = 32, signal?: AbortSignal): Promise<PortfolioItem[]> => {
   const positions = generateGridPositions(count);
 
   try {
     console.log(`Requesting ${count} artworks from Art Institute API...`);
 
     // Fetch from Art Institute of Chicago API (with caching)
-    const artworks = await fetchRandomArtworks(count);
+    const artworks = await fetchRandomArtworks(count, signal);
 
     if (!artworks || artworks.length === 0) {
       throw new Error('API returned no artworks');
@@ -109,19 +108,18 @@ export const generateArtworkItems = async (count: number = 32): Promise<Portfoli
 
     // Convert API artworks to items
     const items = withImages.map((artwork, i) => {
-      const imageUrl = getImageUrl(artwork.image_id, 843);
-      const thumbnailUrl = getImageUrl(artwork.image_id, 400);
-
       return {
         id: i,
         x: positions[i].x,
         y: positions[i].y,
-        shape: shapes[Math.floor(Math.random() * shapes.length)],
-        color: colors[Math.floor(Math.random() * colors.length)],
         title: artwork.title,
         description: artwork.artist_display,
-        imageUrl: imageUrl,
-        thumbnailUrl: thumbnailUrl,
+        imageUrl: getImageUrl(artwork.image_id, AIC_DETAIL_SIZE),
+        thumbnailUrl: getImageUrl(artwork.image_id, AIC_TILE_SIZE),
+        fallbackUrl: getImageUrl(artwork.image_id, AIC_FALLBACK_SIZE),
+        lqip: artwork.thumbnail?.lqip,
+        imageWidth: artwork.thumbnail?.width,
+        imageHeight: artwork.thumbnail?.height,
         collectionSource: 'Art Institute of Chicago',
         url: `https://www.artic.edu/artworks/${artwork.id}`,
         date: artwork.date_display,
@@ -175,12 +173,14 @@ export const searchArtworkItemsByTag = async (tag: string, count: number = 32): 
       id: i,
       x: positions[i].x,
       y: positions[i].y,
-      shape: shapes[Math.floor(Math.random() * shapes.length)],
-      color: colors[Math.floor(Math.random() * colors.length)],
       title: artwork.title,
       description: artwork.artist_display,
-      imageUrl: getImageUrl(artwork.image_id, 843),
-      thumbnailUrl: getImageUrl(artwork.image_id, 400),
+      imageUrl: getImageUrl(artwork.image_id, AIC_DETAIL_SIZE),
+      thumbnailUrl: getImageUrl(artwork.image_id, AIC_TILE_SIZE),
+      fallbackUrl: getImageUrl(artwork.image_id, AIC_FALLBACK_SIZE),
+      lqip: artwork.thumbnail?.lqip,
+      imageWidth: artwork.thumbnail?.width,
+      imageHeight: artwork.thumbnail?.height,
       collectionSource: 'Art Institute of Chicago',
       date: artwork.date_display,
       shortDescription: artwork.short_description || artwork.description,

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { memo, useState, useEffect } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { PortfolioItem as PortfolioItemType } from '../types';
 
 interface PortfolioItemProps {
@@ -15,37 +15,57 @@ interface PortfolioItemProps {
 const imageLoadedCache = new Map<string, boolean>();
 const imageErrorCache = new Map<string, boolean>();
 
-export const PortfolioItem = ({ item, onClick }: PortfolioItemProps) => {
+// Memoised because the canvas renders ~9 looped copies of every item:
+// parent renders (detail open/close, tile crossings) shouldn't re-run
+// 200+ tiles whose item/onClick props are unchanged.
+export const PortfolioItem = memo(function PortfolioItem({ item, onClick }: PortfolioItemProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const reduceMotion = useReducedMotion();
   // Prefer the small thumbnail variant for the 200×200 wall tile.
   // The detail view still pulls `imageUrl` (full size) for the stage.
-  const tileUrl = item.thumbnailUrl || item.imageUrl;
+  const imageUrl = item.thumbnailUrl || item.imageUrl;
 
   // Check cache first for instant rendering of duplicates
-  const [imageLoaded, setImageLoaded] = useState(() => tileUrl ? imageLoadedCache.get(tileUrl) || false : false);
-  const [imageError, setImageError] = useState(() => tileUrl ? imageErrorCache.get(tileUrl) || false : false);
-  const [currentImageUrl, setCurrentImageUrl] = useState(tileUrl);
+  const [imageLoaded, setImageLoaded] = useState(() => imageUrl ? imageLoadedCache.get(imageUrl) || false : false);
+  const [imageError, setImageError] = useState(() => imageUrl ? imageErrorCache.get(imageUrl) || false : false);
+  const [currentImageUrl, setCurrentImageUrl] = useState(imageUrl);
 
   // Update image URL when item changes (important for looped grid)
   useEffect(() => {
-    if (tileUrl) {
-      setCurrentImageUrl(tileUrl);
+    if (imageUrl) {
+      setCurrentImageUrl(imageUrl);
       // Use cached state if available
-      setImageLoaded(imageLoadedCache.get(tileUrl) || false);
-      setImageError(imageErrorCache.get(tileUrl) || false);
+      setImageLoaded(imageLoadedCache.get(imageUrl) || false);
+      setImageError(imageErrorCache.get(imageUrl) || false);
     }
-  }, [tileUrl, item.id]);
+  }, [imageUrl, item.id]);
 
   const renderContent = () => {
     // If item has an image/gif URL, try to render it
-    if (tileUrl) {
+    if (imageUrl) {
       return (
         <div
           className="relative w-full h-full rounded-sm overflow-hidden"
           style={{ background: 'var(--bg-elev)' }}
         >
           {!imageLoaded && !imageError && (
-            <div className="absolute inset-0" style={{ background: 'var(--bg-elev)' }} />
+            <div
+              className="absolute inset-0"
+              style={{
+                background: 'var(--bg-elev)',
+                // AIC ships a tiny base64 placeholder — a soft wash of the
+                // artwork's own colour beats a flat grey while the tile loads.
+                ...(item.lqip
+                  ? {
+                      backgroundImage: `url(${item.lqip})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      filter: 'blur(10px)',
+                      transform: 'scale(1.1)',
+                    }
+                  : {}),
+              }}
+            />
           )}
           {!imageError && (
             <img
@@ -53,7 +73,6 @@ export const PortfolioItem = ({ item, onClick }: PortfolioItemProps) => {
               alt={item.title}
               className="w-full h-full object-cover pointer-events-none select-none"
               style={{
-                imageRendering: item.pixelated ? 'pixelated' : 'auto',
                 opacity: imageLoaded ? 1 : 0,
                 transition: 'opacity 0.3s ease-in-out',
               }}
@@ -67,9 +86,12 @@ export const PortfolioItem = ({ item, onClick }: PortfolioItemProps) => {
                 }
               }}
               onError={() => {
-                // Try fallback if available and not already tried
-                if (item.fallbackUrl && currentImageUrl !== item.fallbackUrl) {
-                  setCurrentImageUrl(item.fallbackUrl);
+                // Step down: thumbnail → full image → fallback → text card
+                const next = [item.imageUrl, item.fallbackUrl].find(
+                  (u) => u && u !== currentImageUrl,
+                );
+                if (next) {
+                  setCurrentImageUrl(next);
                   setImageLoaded(false);
                 } else {
                   // Both primary and fallback failed - show SVG shape instead
@@ -138,9 +160,7 @@ export const PortfolioItem = ({ item, onClick }: PortfolioItemProps) => {
     >
       <motion.div
         className="w-full h-full flex items-center justify-center relative"
-        whileHover={{
-          scale: 1.05,
-        }}
+        whileHover={reduceMotion ? undefined : { scale: 1.05 }}
         transition={{
           type: 'spring',
           stiffness: 300,
@@ -171,4 +191,4 @@ export const PortfolioItem = ({ item, onClick }: PortfolioItemProps) => {
       </motion.div>
     </div>
   );
-};
+});

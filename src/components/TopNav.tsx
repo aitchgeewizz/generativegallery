@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 
-export type SourceMode = 'mixed' | 'art-institute' | 'met-design' | 'harvard';
+export type SourceMode = 'mixed' | 'art-institute' | 'met-design' | 'harvard' | 'vam';
 export type Theme = 'dark' | 'light';
 
 interface TopNavProps {
@@ -17,6 +17,7 @@ const SOURCE_OPTIONS: Array<{ id: SourceMode; label: string }> = [
   { id: 'met-design', label: 'Design' },
   { id: 'art-institute', label: 'Art' },
   { id: 'harvard', label: 'Photo' },
+  { id: 'vam', label: 'Print & Pattern' },
 ];
 
 const RefreshIcon = () => (

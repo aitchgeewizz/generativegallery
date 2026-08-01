@@ -4,6 +4,9 @@
  * https://collection.cooperhewitt.org/api/
  */
 
+import { shuffle } from '../utils/shuffle';
+import { combineSignals } from '../utils/abort';
+
 export interface DesignObjectData {
   id: string;
   title: string;
@@ -98,17 +101,23 @@ export const getDesignImageUrl = (imageData: DesignObjectData): string | null =>
 };
 
 /**
- * Get a small image URL for wall tiles — prefers `n` (~320px) before
- * falling back to larger variants. Saves a meaningful chunk of network
- * vs. loading the `b` variant for every 200×200 tile.
+ * Smaller variant for wall tiles: z (640) covers a 200px tile on retina;
+ * b (1024, the legacy API's ceiling) stays reserved for the detail stage.
  */
 export const getDesignThumbnailUrl = (imageData: DesignObjectData): string | null => {
   if (!imageData.images || imageData.images.length === 0) return null;
 
   const image = imageData.images[0];
-  // Prefer small → medium → large. Skip the square `sq` thumb (often
-  // crops awkwardly); only fall through to it if nothing else exists.
-  return image.n?.url || image.z?.url || image.d?.url || image.b?.url || image.sq?.url || null;
+  return image.z?.url || image.n?.url || image.b?.url || image.sq?.url || null;
+};
+
+/** Native dimensions of the largest available derivative, when reported. */
+export const getDesignImageDimensions = (
+  imageData: DesignObjectData,
+): { width?: number; height?: number } => {
+  const image = imageData.images?.[0];
+  const largest = image?.b || image?.z || image?.n;
+  return { width: largest?.width, height: largest?.height };
 };
 
 /**
@@ -117,7 +126,8 @@ export const getDesignThumbnailUrl = (imageData: DesignObjectData): string | nul
 const searchDesignObjects = async (
   searchTerm: string,
   page: number = 1,
-  perPage: number = 100
+  perPage: number = 100,
+  signal?: AbortSignal
 ): Promise<DesignObjectData[]> => {
   if (!API_KEY) {
     console.warn('Cooper Hewitt API key not configured');
@@ -128,7 +138,8 @@ const searchDesignObjects = async (
     const response = await fetch(
       `${BASE_URL}?method=cooperhewitt.search.objects&access_token=${API_KEY}&query=${encodeURIComponent(
         searchTerm
-      )}&has_images=1&page=${page}&per_page=${perPage}`
+      )}&has_images=1&page=${page}&per_page=${perPage}`,
+      { signal: combineSignals(10000, signal) }
     );
 
     if (!response.ok) return [];
@@ -151,7 +162,7 @@ const searchDesignObjects = async (
  * Focuses on graphic design, posters, and modern design
  * Uses random pagination to get different results each time
  */
-export const fetchRandomDesignObjects = async (count: number = 32): Promise<DesignObjectData[]> => {
+export const fetchRandomDesignObjects = async (count: number = 32, signal?: AbortSignal): Promise<DesignObjectData[]> => {
   if (!API_KEY) {
     console.warn('Cooper Hewitt API key not found');
     console.log('Add your API key to .env file:');
@@ -189,7 +200,7 @@ export const fetchRandomDesignObjects = async (count: number = 32): Promise<Desi
         // the pages 1–5 hero cluster that returns the same items.
         const randomPage = Math.floor(Math.random() * 20) + 1;
         try {
-          return await searchDesignObjects(term, randomPage, 36);
+          return await searchDesignObjects(term, randomPage, 100, signal);
         } catch {
           return [] as DesignObjectData[];
         }
@@ -209,7 +220,7 @@ export const fetchRandomDesignObjects = async (count: number = 32): Promise<Desi
 
     // Shuffle and limit to requested count so each load surfaces a different
     // ordering of whatever pool we built.
-    const shuffled = results.sort(() => Math.random() - 0.5);
+    const shuffled = shuffle(results);
     const finalResults = shuffled.slice(0, count);
 
     console.log(`Successfully loaded ${finalResults.length} design objects from Cooper Hewitt (pool of ${results.length})`);
@@ -295,28 +306,3 @@ export const searchDesignObjectsByTag = async (
     return [];
   }
 };
-
-/**
- * Curated modern design and graphic design collection
- * High-quality fallback when API key is not available
- */
-export const curatedDesignCollection = [
-  {
-    id: 'design-1',
-    title: 'Bauhaus Exhibition Poster',
-    description: 'Modernist poster design from the Bauhaus school',
-    medium: 'Lithograph on paper',
-    date: '1923',
-    designer: 'László Moholy-Nagy',
-    imageUrl: 'https://images.metmuseum.org/CRDImages/md/original/DT5337.jpg',
-  },
-  {
-    id: 'design-2',
-    title: 'Swiss Style Typography Poster',
-    description: 'International Typographic Style poster',
-    medium: 'Offset lithograph',
-    date: '1958',
-    designer: 'Josef Müller-Brockmann',
-    imageUrl: 'https://images.metmuseum.org/CRDImages/md/original/DT5338.jpg',
-  },
-];

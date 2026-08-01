@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { PortfolioItem } from '../types';
 import { extractTags, extractArtistName } from '../utils/tagExtractor';
@@ -62,6 +62,14 @@ export const ArtworkDetail = ({
   const [isPanning, setIsPanning] = useState(false);
   const [direction, setDirection] = useState(0);
   const [mainImageError, setMainImageError] = useState(false);
+  // Full-size stage image: starts at imageUrl, steps down to fallbackUrl
+  // on error, then to the text card. While it loads, the tile-size
+  // thumbnail (already in the browser cache from the wall) shows
+  // blurred underneath — the blur-up keeps the stage from going blank.
+  const [stageSrc, setStageSrc] = useState(item?.imageUrl);
+  const [stageLoaded, setStageLoaded] = useState(false);
+  // Respect prefers-reduced-motion: prev/next slides become plain fades.
+  const reduceMotion = useReducedMotion();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     getDefaultExpandedSections(true),
   );
@@ -103,6 +111,8 @@ export const ArtworkDetail = ({
   // Reset image state when item changes
   useEffect(() => {
     setMainImageError(false);
+    setStageSrc(item?.imageUrl);
+    setStageLoaded(false);
     setZoom(1);
     setPanOffset({ x: 0, y: 0 });
     setExpandedSections(getDefaultExpandedSections(Boolean(artistName)));
@@ -297,7 +307,7 @@ export const ArtworkDetail = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 0.99 }}
       transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
-      className="fixed inset-0 z-50 gallery-grain"
+      className="fixed inset-0 z-50"
       style={{ background: 'var(--bg)' }}
     >
         {/* Image Stage. On desktop (>=md): between left rail (~60px)
@@ -327,7 +337,7 @@ export const ArtworkDetail = ({
             isMobile
               ? panelHidden
                 ? { top: 0, left: 0, right: 0, bottom: 0 }
-                : { top: 0, left: 0, right: 0, bottom: '55vh' }
+                : { top: 0, left: 0, right: 0, bottom: '55dvh' }
               : {
                   top: 0,
                   left: panelHidden ? 0 : 56,
@@ -378,14 +388,12 @@ export const ArtworkDetail = ({
         >
           <AnimatePresence mode="wait">
             {item.imageUrl && !mainImageError ? (
-              <motion.img
+              <motion.div
                 key={item.id}
-                initial={{ opacity: 0, x: direction * 40 }}
+                initial={{ opacity: 0, x: reduceMotion ? 0 : direction * 40 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: direction * -40 }}
+                exit={{ opacity: 0, x: reduceMotion ? 0 : direction * -40 }}
                 transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-                src={item.imageUrl}
-                alt={item.title}
                 onClick={(e) => {
                   // Click/tap the image toggles fullscreen on every size.
                   // Suppress when zoomed (clicks belong to the panner) and
@@ -396,14 +404,12 @@ export const ArtworkDetail = ({
                   e.stopPropagation();
                   setPanelHidden((h) => !h);
                 }}
-                className="max-w-full max-h-full object-contain select-none"
+                className="relative max-w-full max-h-full select-none"
                 style={{
                   transform: `scale(${zoom}) translate(${panOffset.x}px, ${panOffset.y}px)`,
                   transformOrigin: 'center center',
                   cursor: zoom > 1 ? (isPanning ? 'grabbing' : 'grab') : 'zoom-in',
                 }}
-                onError={() => setMainImageError(true)}
-                draggable={false}
                 onPointerDown={(e) => {
                   if (zoom > 1) {
                     setIsPanning(true);
@@ -419,7 +425,51 @@ export const ArtworkDetail = ({
                   }
                 }}
                 onPointerUp={() => setIsPanning(false)}
-              />
+              >
+                {/* The tile-size thumbnail is the in-flow sizer: it is
+                    already cached from the wall, so the stage takes the
+                    work's true aspect immediately. Blurred until the
+                    full image lands on top of it. */}
+                {item.thumbnailUrl ? (
+                  <img
+                    src={item.thumbnailUrl}
+                    alt=""
+                    aria-hidden
+                    className="max-w-full max-h-full object-contain select-none"
+                    style={{
+                      filter: stageLoaded ? 'none' : 'blur(14px)',
+                      opacity: stageLoaded ? 0 : 1,
+                      transition: 'opacity 0.35s ease',
+                    }}
+                    draggable={false}
+                  />
+                ) : null}
+                <img
+                  src={stageSrc}
+                  alt={item.title}
+                  className={
+                    item.thumbnailUrl
+                      ? 'absolute inset-0 w-auto h-auto max-w-full max-h-full m-auto object-contain select-none'
+                      : 'max-w-full max-h-full object-contain select-none'
+                  }
+                  style={{
+                    opacity: stageLoaded || !item.thumbnailUrl ? 1 : 0,
+                    transition: 'opacity 0.35s ease',
+                  }}
+                  onLoad={() => setStageLoaded(true)}
+                  onError={() => {
+                    // Step down: full detail size → blessed fallback → text card
+                    if (item.fallbackUrl && stageSrc !== item.fallbackUrl) {
+                      setStageSrc(item.fallbackUrl);
+                    } else if (stageSrc !== item.imageUrl && item.imageUrl) {
+                      setStageSrc(item.imageUrl);
+                    } else {
+                      setMainImageError(true);
+                    }
+                  }}
+                  draggable={false}
+                />
+              </motion.div>
             ) : (
               <motion.div
                 key={`${item.id}-fallback`}
@@ -625,9 +675,9 @@ export const ArtworkDetail = ({
                   }`}
                   style={isCurrent ? { boxShadow: '0 0 0 2px var(--text)' } : undefined}
                 >
-                  {navItem.imageUrl ? (
+                  {navItem.imageUrl || navItem.thumbnailUrl ? (
                     <img
-                      src={navItem.imageUrl}
+                      src={navItem.thumbnailUrl || navItem.imageUrl}
                       alt=""
                       className="w-full h-full object-cover"
                       loading="lazy"
@@ -685,7 +735,7 @@ export const ArtworkDetail = ({
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  top: '45vh',
+                  top: '45dvh',
                   background: 'var(--bg)',
                   borderTop: '1px solid var(--border)',
                   pointerEvents: panelHidden ? 'none' : 'auto',
@@ -939,7 +989,7 @@ export const ArtworkDetail = ({
               {/* More by Artist */}
               {artistName && (
                 <ExpandableSection
-                  title={`More by ${artistName.split(' ').slice(-1)[0]}`}
+                  title={`More by ${artistName}`}
                   open={expandedSections.has('related')}
                   onToggle={() => toggleSection('related')}
                 >
@@ -1079,10 +1129,10 @@ const ExpandableSection = ({
   <div>
     <button
       onClick={onToggle}
-      className="w-full flex items-center justify-between py-3.5 text-left group"
+      className="w-full flex items-center justify-between gap-3 py-3.5 text-left group"
     >
       <span
-        className="type-meta transition-colors"
+        className="type-meta transition-colors truncate min-w-0"
         style={{ color: 'var(--text-2)' }}
       >
         {title}

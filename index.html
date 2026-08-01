@@ -24,9 +24,17 @@
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-    <link rel="preconnect" href="https://www.artic.edu" />
-    <link rel="preconnect" href="https://collection.cooperhewitt.org" />
+    <!-- Preconnect the JSON APIs hit on first load; dns-prefetch the image
+         CDNs that follow a beat later. -->
+    <link rel="preconnect" href="https://api.artic.edu" />
+    <link rel="preconnect" href="https://api.collection.cooperhewitt.org" />
     <link rel="preconnect" href="https://api.harvardartmuseums.org" />
+    <link rel="preconnect" href="https://api.vam.ac.uk" />
+    <link rel="dns-prefetch" href="https://www.artic.edu" />
+    <link rel="dns-prefetch" href="https://images.collection.cooperhewitt.org" />
+    <link rel="dns-prefetch" href="https://nrs.harvard.edu" />
+    <link rel="dns-prefetch" href="https://ids.lib.harvard.edu" />
+    <link rel="dns-prefetch" href="https://framemark.vam.ac.uk" />
 
     <!-- Free Google font system:
          Workbench for the wordmark/accent moments, Space Grotesk for

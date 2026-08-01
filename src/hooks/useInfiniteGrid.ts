@@ -1,9 +1,16 @@
 import { useMemo } from 'react';
-import { PortfolioItem, CanvasOffset } from '../types';
+import { PortfolioItem } from '../types';
 
 interface UseInfiniteGridProps {
   baseItems: PortfolioItem[];
-  offset: CanvasOffset;
+  /**
+   * Loop-tile indices the viewport currently sits in — derived by the
+   * caller as Math.floor(-offset / gridSize). Taking the indices rather
+   * than the raw drag offset means this memo only recomputes when the
+   * viewport crosses a tile boundary, not on every dragged pixel.
+   */
+  tileX: number;
+  tileY: number;
   gridWidth: number;
   gridHeight: number;
 }
@@ -13,11 +20,11 @@ interface UseInfiniteGridProps {
  * one or two items shouldn't render 9 copies of the same image in a
  * grid pattern — it just looks like a wallpaper bug.
  */
-const MIN_ITEMS_TO_LOOP = 4;
+export const MIN_ITEMS_TO_LOOP = 4;
 
 /**
  * Hook to create a looping grid by repeating the base pattern.
- * Renders a 3x3 tile pattern around the current drag offset to keep
+ * Renders a 3x3 tile pattern around the current tile to keep
  * the wall visually full as the visitor moves through the room.
  *
  * Special case: when the result set is small (<= 3), we skip the loop
@@ -27,7 +34,8 @@ const MIN_ITEMS_TO_LOOP = 4;
  */
 export const useInfiniteGrid = ({
   baseItems,
-  offset,
+  tileX,
+  tileY,
   gridWidth,
   gridHeight,
 }: UseInfiniteGridProps): PortfolioItem[] => {
@@ -41,30 +49,26 @@ export const useInfiniteGrid = ({
       }));
     }
 
-    // Calculate which grid tile we're currently viewing
-    const currentTileX = Math.floor(-offset.x / gridWidth);
-    const currentTileY = Math.floor(-offset.y / gridHeight);
-
     const items: PortfolioItem[] = [];
 
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
-        const tileX = currentTileX + dx;
-        const tileY = currentTileY + dy;
+        const gridTileX = tileX + dx;
+        const gridTileY = tileY + dy;
 
         baseItems.forEach((item) => {
           items.push({
             ...item,
-            id: `${item.id}-${tileX}-${tileY}`,
-            x: item.x + tileX * gridWidth,
-            y: item.y + tileY * gridHeight,
+            id: `${item.id}-${gridTileX}-${gridTileY}`,
+            x: item.x + gridTileX * gridWidth,
+            y: item.y + gridTileY * gridHeight,
           });
         });
       }
     }
 
     return items;
-  }, [baseItems, offset.x, offset.y, gridWidth, gridHeight]);
+  }, [baseItems, tileX, tileY, gridWidth, gridHeight]);
 
   return infiniteItems;
 };

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 /**
  * First-paint intro.
@@ -17,6 +17,9 @@ import { motion } from 'framer-motion';
 const LOADING_TEXT = 'LET’S SEE';
 
 export const Intro = () => {
+  // prefers-reduced-motion: the per-character pulse becomes static text.
+  const reduceMotion = useReducedMotion();
+
   return (
     <motion.section
       className="fixed inset-0 z-50 gallery-grain"
@@ -31,15 +34,19 @@ export const Intro = () => {
         <div className="max-w-5xl">
           <motion.h1
             initial={{ opacity: 0, y: 6 }}
-            animate={{
-              opacity: 1,
-              y: 0,
-              fontVariationSettings: [
-                "'BLED' 18, 'SCAN' 2",
-                "'BLED' 30, 'SCAN' 16",
-                "'BLED' 24, 'SCAN' 10",
-              ],
-            }}
+            animate={
+              reduceMotion
+                ? { opacity: 1, y: 0 }
+                : {
+                    opacity: 1,
+                    y: 0,
+                    fontVariationSettings: [
+                      "'BLED' 18, 'SCAN' 2",
+                      "'BLED' 30, 'SCAN' 16",
+                      "'BLED' 24, 'SCAN' 10",
+                    ],
+                  }
+            }
             transition={{
               opacity: { duration: 0.8, ease: 'easeOut' },
               y: { duration: 0.8, ease: 'easeOut' },
@@ -78,32 +85,34 @@ export const Intro = () => {
         aria-label="Loading the wall"
         style={{ color: 'var(--text-2)' }}
       >
-        {LOADING_TEXT.split('').map((char, i) =>
-          char === ' ' ? (
-            <span key={i}>&nbsp;</span>
-          ) : (
-            <motion.span
-              key={i}
-              animate={{
-                opacity: [0.25, 1, 0.25],
-                fontVariationSettings: [
-                  "'BLED' 12, 'SCAN' 0",
-                  "'BLED' 34, 'SCAN' 20",
-                  "'BLED' 12, 'SCAN' 0",
-                ],
-              }}
-              transition={{
-                duration: 2.2,
-                delay: i * 0.12,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-              style={{ display: 'inline-block' }}
-            >
-              {char}
-            </motion.span>
-          ),
-        )}
+        {reduceMotion
+          ? LOADING_TEXT
+          : LOADING_TEXT.split('').map((char, i) =>
+              char === ' ' ? (
+                <span key={i}>&nbsp;</span>
+              ) : (
+                <motion.span
+                  key={i}
+                  animate={{
+                    opacity: [0.25, 1, 0.25],
+                    fontVariationSettings: [
+                      "'BLED' 12, 'SCAN' 0",
+                      "'BLED' 34, 'SCAN' 20",
+                      "'BLED' 12, 'SCAN' 0",
+                    ],
+                  }}
+                  transition={{
+                    duration: 2.2,
+                    delay: i * 0.12,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                  }}
+                  style={{ display: 'inline-block' }}
+                >
+                  {char}
+                </motion.span>
+              ),
+            )}
       </motion.p>
     </motion.section>
   );

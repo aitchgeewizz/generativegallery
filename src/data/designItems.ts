@@ -1,16 +1,13 @@
-import { PortfolioItem, ShapeType } from '../types';
-import { fetchRandomDesignObjects, getDesignImageUrl, getDesignThumbnailUrl, searchDesignObjectsByTag } from '../services/cooperHewittApi';
+import { PortfolioItem } from '../types';
+import {
+  fetchRandomDesignObjects,
+  getDesignImageUrl,
+  getDesignThumbnailUrl,
+  getDesignImageDimensions,
+  searchDesignObjectsByTag,
+} from '../services/cooperHewittApi';
 
-const shapes: ShapeType[] = ['box', 'sphere', 'torus', 'cone', 'cylinder', 'octahedron'];
 
-// Modern design color palette - inspired by Bauhaus, Swiss Design, and Contemporary
-const designColors = [
-  '#FF0000', '#0000FF', '#FFFF00', // Primary Bauhaus colors
-  '#000000', '#FFFFFF', '#808080', // Monochrome
-  '#FF6B35', '#004E89', '#F7B267', // Contemporary
-  '#00D1FF', '#FF006E', '#FFBE0B', // Vibrant modern
-  '#2EC4B6', '#E71D36', '#FF9F1C', // Bold modern
-];
 
 /**
  * Generate grid layout positions (8x4 grid = 32 items)
@@ -63,13 +60,13 @@ const generateGridPositions = (count: number, centered: boolean = false) => {
  * SPEC.md: never lie about data. App.tsx compensates by pulling more
  * from the other sources.
  */
-export const generateDesignItems = async (count: number = 32): Promise<PortfolioItem[]> => {
+export const generateDesignItems = async (count: number = 32, signal?: AbortSignal): Promise<PortfolioItem[]> => {
   const positions = generateGridPositions(count);
   let items: PortfolioItem[] = [];
 
   try {
     // Fetch from Cooper Hewitt Design Museum collection
-    const designObjects = await fetchRandomDesignObjects(count);
+    const designObjects = await fetchRandomDesignObjects(count, signal);
 
     console.log(`Received ${designObjects.length} design objects from Cooper Hewitt API`);
 
@@ -80,7 +77,6 @@ export const generateDesignItems = async (count: number = 32): Promise<Portfolio
     // Convert API design objects to items
     items = withImages.slice(0, count).map((design, i) => {
       const imageUrl = getDesignImageUrl(design);
-      const thumbnailUrl = getDesignThumbnailUrl(design);
 
       // Get primary designer/creator with role display name
       const primaryCreator = design.participants?.find(p =>
@@ -94,12 +90,12 @@ export const generateDesignItems = async (count: number = 32): Promise<Portfolio
         id: i,
         x: positions[i].x,
         y: positions[i].y,
-        shape: shapes[Math.floor(Math.random() * shapes.length)],
-        color: designColors[Math.floor(Math.random() * designColors.length)],
         title: design.title || 'Untitled',
         description: `${creator}${design.date ? ` (${design.date})` : ''}`,
         imageUrl: imageUrl || undefined,
-        thumbnailUrl: thumbnailUrl || undefined,
+        thumbnailUrl: getDesignThumbnailUrl(design) || undefined,
+        imageWidth: getDesignImageDimensions(design).width,
+        imageHeight: getDesignImageDimensions(design).height,
         collectionSource: 'Cooper Hewitt Smithsonian Design Museum',
         date: design.date,
 
@@ -178,7 +174,6 @@ export const searchDesignItemsByTag = async (tag: string, count: number = 32): P
     // Convert to PortfolioItems
     items = withImages.map((design, i) => {
       const imageUrl = getDesignImageUrl(design);
-      const thumbnailUrl = getDesignThumbnailUrl(design);
       const primaryCreator = design.participants?.find(p =>
         p.role_name?.toLowerCase().includes('designer') ||
         p.role_name?.toLowerCase().includes('artist')
@@ -190,12 +185,12 @@ export const searchDesignItemsByTag = async (tag: string, count: number = 32): P
         id: i,
         x: positions[i].x,
         y: positions[i].y,
-        shape: shapes[Math.floor(Math.random() * shapes.length)],
-        color: designColors[Math.floor(Math.random() * designColors.length)],
         title: design.title || 'Untitled',
         description: `${creator}${design.date ? ` (${design.date})` : ''}`,
         imageUrl: imageUrl || undefined,
-        thumbnailUrl: thumbnailUrl || undefined,
+        thumbnailUrl: getDesignThumbnailUrl(design) || undefined,
+        imageWidth: getDesignImageDimensions(design).width,
+        imageHeight: getDesignImageDimensions(design).height,
         collectionSource: 'Cooper Hewitt Smithsonian Design Museum',
         date: design.date,
         medium: design.medium,

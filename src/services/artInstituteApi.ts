@@ -4,6 +4,9 @@
  * https://api.artic.edu/docs/
  */
 
+import { shuffle } from '../utils/shuffle';
+import { combineSignals, isAbortError } from '../utils/abort';
+
 export interface ArtworkData {
   id: number;
   title: string;
@@ -25,19 +28,33 @@ export interface ArtworkData {
     s: number;
     l: number;
   };
+  thumbnail?: {
+    lqip?: string;
+    width?: number;
+    height?: number;
+    alt_text?: string;
+  };
 }
 
 const BASE_URL = 'https://api.artic.edu/api/v1';
 const IMAGE_BASE_URL = 'https://www.artic.edu/iiif/2';
 
-const ARTWORK_FIELDS = 'id,title,artist_display,date_display,image_id,is_public_domain,description,short_description,medium_display,dimensions,credit_line,style_titles,classification_titles,subject_titles,theme_titles,color,is_boosted';
+const ARTWORK_FIELDS = 'id,title,artist_display,date_display,image_id,is_public_domain,description,short_description,medium_display,dimensions,credit_line,style_titles,classification_titles,subject_titles,theme_titles,color,is_boosted,thumbnail';
 
 /**
- * Get image URL from image_id
+ * Get image URL from image_id.
+ *
+ * Verified sizes (July 2026): 400 ≈ 44KB (wall tile), 843 ≈ 193KB (the
+ * size AIC's docs bless — our graceful fallback), 1686 ≈ 830KB (detail
+ * stage; sharp on retina where 843 upscales ~1.4x).
  */
 export const getImageUrl = (imageId: string, size: number = 843): string => {
   return `${IMAGE_BASE_URL}/${imageId}/full/${size},/0/default.jpg`;
 };
+
+export const AIC_TILE_SIZE = 400;
+export const AIC_DETAIL_SIZE = 1686;
+export const AIC_FALLBACK_SIZE = 843;
 
 /**
  * Curated themes for diverse, vibrant collections
@@ -49,6 +66,10 @@ const CURATED_THEMES = [
   'Photography', 'sculpture', 'paintings', 'Japanese prints',
   'American Art', 'European Painting', 'African Art', 'Asian Art',
   'Essentials', 'masterpieces', 'architecture',
+  // Design-artifact threads — AIC's prints, posters and ornament
+  // holdings are deep and were previously never surfaced.
+  'poster', 'ornament', 'Vienna Secession', 'Arts and Crafts movement',
+  'trade card', 'wood engraving', 'lithograph',
 ];
 
 const isQualityArtwork = (item: ArtworkData): boolean => {
@@ -61,13 +82,13 @@ const isQualityArtwork = (item: ArtworkData): boolean => {
 /**
  * Fetch artwork details in bulk using the ids parameter (single request)
  */
-const fetchArtworksByIds = async (ids: number[]): Promise<ArtworkData[]> => {
+const fetchArtworksByIds = async (ids: number[], signal?: AbortSignal): Promise<ArtworkData[]> => {
   if (ids.length === 0) return [];
 
   try {
     const response = await fetch(
       `${BASE_URL}/artworks?ids=${ids.join(',')}&fields=${ARTWORK_FIELDS}&limit=${ids.length}`,
-      { signal: AbortSignal.timeout(15000) }
+      { signal: combineSignals(15000, signal) }
     );
 
     if (!response.ok) return [];
@@ -75,7 +96,7 @@ const fetchArtworksByIds = async (ids: number[]): Promise<ArtworkData[]> => {
     const data = await response.json();
     return (data.data || []) as ArtworkData[];
   } catch (err) {
-    console.warn('Batch fetch failed:', err);
+    if (!isAbortError(err)) console.warn('Batch fetch failed:', err);
     return [];
   }
 };
@@ -85,12 +106,12 @@ const fetchArtworksByIds = async (ids: number[]): Promise<ArtworkData[]> => {
  * Picks multiple random themes, fetches IDs, then bulk-loads details
  * in 2-3 requests total instead of 64+ individual ones.
  */
-export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkData[]> => {
+export const fetchRandomArtworks = async (count: number = 32, signal?: AbortSignal): Promise<ArtworkData[]> => {
   try {
     console.log(`Fetching ${count} fresh artworks from Art Institute API...`);
 
     // Pick 3 random themes for variety
-    const shuffledThemes = [...CURATED_THEMES].sort(() => Math.random() - 0.5);
+    const shuffledThemes = shuffle(CURATED_THEMES);
     const selectedThemes = shuffledThemes.slice(0, 3);
     console.log(`Themes: ${selectedThemes.join(', ')}`);
 
@@ -99,7 +120,7 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
       selectedThemes.map(theme =>
         fetch(
           `${BASE_URL}/artworks/search?q=${encodeURIComponent(theme)}&limit=80&fields=id`,
-          { signal: AbortSignal.timeout(10000) }
+          { signal: combineSignals(10000, signal) }
         ).then(r => r.ok ? r.json() : { data: [] })
       )
     );
@@ -123,7 +144,7 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
     // + title + artist) typically passes ~30-40% of fetched details,
     // and a small count (e.g. 10) without a floor would only fetch 30
     // IDs → ~3 quality items, which is far too sparse.
-    const allIds = [...idSet].sort(() => Math.random() - 0.5);
+    const allIds = shuffle([...idSet]);
     const idsToFetch = allIds.slice(0, Math.max(count * 8, 60));
 
     console.log(`Found ${idSet.size} unique IDs, fetching ${idsToFetch.length} details in bulk...`);
@@ -134,7 +155,7 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
 
     for (let i = 0; i < idsToFetch.length; i += batchSize) {
       const batchIds = idsToFetch.slice(i, i + batchSize);
-      const batchResults = await fetchArtworksByIds(batchIds);
+      const batchResults = await fetchArtworksByIds(batchIds, signal);
       artworks.push(...batchResults);
 
       const qualityCount = artworks.filter(isQualityArtwork).length;
@@ -149,25 +170,13 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
     const filtered = artworks.filter(isQualityArtwork);
     console.log(`After filtering: ${filtered.length} quality artworks`);
 
-    // Sort by quality — prioritize paintings/sculptures, then boosted, then vibrant
-    const classificationScore = (item: ArtworkData): number => {
-      const cls = item.classification_titles?.join(' ').toLowerCase() || '';
-      if (cls.includes('painting')) return 3;
-      if (cls.includes('sculpture')) return 2;
-      if (cls.includes('photograph')) return 1;
-      if (cls.includes('print') || cls.includes('drawing') || cls.includes('textile')) return -1;
-      return 0;
-    };
-
+    // Light ranking only: boosted works float, everything else keeps its
+    // shuffled order. The old score actively buried prints, drawings and
+    // textiles — for a design-artifact wall those ARE the good stuff.
     const sorted = filtered.sort((a, b) => {
-      // Paintings/sculptures first
-      const clsDiff = classificationScore(b) - classificationScore(a);
-      if (clsDiff !== 0) return clsDiff;
-      // Then boosted
       if ((a as any).is_boosted && !(b as any).is_boosted) return -1;
       if (!(a as any).is_boosted && (b as any).is_boosted) return 1;
-      // Then saturation
-      return (b.color?.s || 0) - (a.color?.s || 0);
+      return 0;
     });
 
     const final = sorted.slice(0, count);
@@ -180,7 +189,7 @@ export const fetchRandomArtworks = async (count: number = 32): Promise<ArtworkDa
     return final;
 
   } catch (error) {
-    console.error('API fetch failed:', error);
+    if (!isAbortError(error)) console.error('API fetch failed:', error);
     throw error;
   }
 };

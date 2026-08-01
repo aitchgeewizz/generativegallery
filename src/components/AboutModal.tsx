@@ -27,7 +27,7 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
       {open && (
         <motion.div
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto backdrop-blur-sm py-12 md:py-16"
-          style={{ background: 'rgba(0,0,0,0.75)' }}
+          style={{ background: 'var(--veil)' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

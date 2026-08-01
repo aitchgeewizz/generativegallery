@@ -1,5 +1,3 @@
-export type ShapeType = 'box' | 'sphere' | 'torus' | 'cone' | 'cylinder' | 'octahedron';
-
 export type ViewMode = 'collection' | 'tag-filter';
 
 export interface ActiveFilter {
@@ -15,19 +13,18 @@ export interface PortfolioItem {
   id: number | string;
   x: number;
   y: number;
-  shape: ShapeType;
-  color: string;
   title: string;
   description?: string;
   imageUrl?: string;
-  /**
-   * Small variant (~400px) used by the wall tile. Falls back to
-   * `imageUrl` when missing. Detail view always uses `imageUrl` for
-   * the high-resolution view.
-   */
+  /** Smaller variant for the 200px wall tile; imageUrl serves the detail stage. */
   thumbnailUrl?: string;
   fallbackUrl?: string;
-  pixelated?: boolean;
+  /** Native pixel dimensions of the source image, when the API reports them.
+      Feeds aspect-ratio-true layout work. */
+  imageWidth?: number;
+  imageHeight?: number;
+  /** Tiny base64 placeholder (AIC provides one) for blur-up while a tile loads. */
+  lqip?: string;
   collectionSource?: string;
   url?: string;
   date?: string;

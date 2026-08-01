@@ -5,6 +5,9 @@
  * Rate Limit: 2500 requests/day
  */
 
+import { shuffle } from '../utils/shuffle';
+import { combineSignals, isAbortError } from '../utils/abort';
+
 export interface HarvardArtObject {
   id: number;
   objectid: number;
@@ -52,15 +55,24 @@ export interface HarvardArtObject {
 const BASE_URL = 'https://api.harvardartmuseums.org';
 const API_KEY = import.meta.env.VITE_HARVARD_KEY;
 
+export const HARVARD_TILE_SIZE = 400;
+export const HARVARD_DETAIL_SIZE = 1600;
+
 /**
- * Get IIIF image URL at specified size
- * Harvard uses IIIF (International Image Interoperability Framework)
- * Format: {baseuri}/full/{size},/0/default.jpg
+ * Get an image URL at the requested pixel width.
+ *
+ * `primaryimageurl` points at Harvard's IDS delivery service (via the
+ * nrs.harvard.edu resolver), which honours a `?width=` query param even
+ * through the redirect — verified July 2026, CORS-open. Without it the
+ * service returns originals up to several thousand pixels, which is
+ * multi-MB waste for a 200px wall tile. IIIF fallback takes the same
+ * size via the standard path segment.
  */
 export const getHarvardImageUrl = (artwork: HarvardArtObject, size: number = 843): string | null => {
   // Try primary image URL first
   if (artwork.primaryimageurl) {
-    return artwork.primaryimageurl;
+    const sep = artwork.primaryimageurl.includes('?') ? '&' : '?';
+    return `${artwork.primaryimageurl}${sep}width=${size}`;
   }
 
   // Try IIIF images
@@ -248,10 +260,11 @@ const fetchPhotoPage = async (
   term: string,
   page: number,
   size: number = 70,
+  signal?: AbortSignal,
 ): Promise<HarvardArtObject[]> => {
   const response = await fetch(
     `${BASE_URL}/object?apikey=${API_KEY}&size=${size}&page=${page}&hasimage=1&classification=Photographs&q=${encodeURIComponent(term)}`,
-    { signal: AbortSignal.timeout(10000) }
+    { signal: combineSignals(10000, signal) }
   );
 
   if (!response.ok) {
@@ -268,7 +281,7 @@ const fetchPhotoPage = async (
  * Uses search-based approach to find art photography, excluding
  * X-rays, radiographs, and conservation documentation
  */
-export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardArtObject[]> => {
+export const fetchHarvardArtworks = async (count: number = 32, signal?: AbortSignal): Promise<HarvardArtObject[]> => {
   if (!API_KEY) {
     console.warn('Harvard Art Museums API key not found');
     return [];
@@ -281,7 +294,7 @@ export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardA
       const term = randomFrom(bucket.terms);
       const randomPage = Math.floor(Math.random() * 12) + 1;
 
-      const quality = await fetchPhotoPage(term, randomPage);
+      const quality = await fetchPhotoPage(term, randomPage, 70, signal);
 
       // Put colour and later works toward the front of each bucket, but
       // keep the rest so the archive can still surprise us.
@@ -315,7 +328,7 @@ export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardA
       const fallbackTerms = ['photography', 'chromogenic print', 'portrait photography'];
       const fallbackPages = await Promise.all(
         fallbackTerms.map((term) =>
-          fetchPhotoPage(term, Math.floor(Math.random() * 8) + 1, 90).catch(() => []),
+          fetchPhotoPage(term, Math.floor(Math.random() * 8) + 1, 90, signal).catch(() => []),
         ),
       );
       selected = dedupePhotos([
@@ -328,7 +341,66 @@ export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardA
 
     return selected;
   } catch (error) {
-    console.error('Harvard Art Museums API failed:', error);
+    if (!isAbortError(error)) console.error('Harvard Art Museums API failed:', error);
+    return [];
+  }
+};
+
+/**
+ * Bauhaus / Busch-Reisinger design themes. Harvard holds one of the
+ * best Bauhaus collections outside Germany, invisible while the fetch
+ * was locked to classification=Photographs. The `division` API param
+ * proved unreliable (probed July 2026 — totals ignored it), so these
+ * ride the general `q` search, which returns precisely the right
+ * objects for named-movement and named-maker queries.
+ */
+const DESIGN_THEMES = [
+  'Bauhaus', 'Lyonel Feininger', 'Moholy-Nagy', 'Josef Albers',
+  'Anni Albers', 'Marianne Brandt', 'Werkbund', 'De Stijl',
+  'New European Graphics', 'Bauhaus weaving', 'Herbert Bayer',
+];
+
+/**
+ * Fetch design works for the mixed wall — same plumbing as the
+ * photography fetch, without the Photographs lock.
+ */
+export const fetchHarvardDesignWorks = async (count: number = 32, signal?: AbortSignal): Promise<HarvardArtObject[]> => {
+  if (!API_KEY) {
+    console.warn('Harvard Art Museums API key not found');
+    return [];
+  }
+
+  try {
+    const artworks: HarvardArtObject[] = [];
+    const themes = shuffle(DESIGN_THEMES);
+    const maxAttempts = 3;
+
+    for (let attempt = 0; attempt < maxAttempts && artworks.length < count; attempt++) {
+      const theme = themes[attempt % themes.length];
+      const randomPage = Math.floor(Math.random() * 5) + 1;
+
+      const response = await fetch(
+        `${BASE_URL}/object?apikey=${API_KEY}&size=100&page=${randomPage}&hasimage=1&q=${encodeURIComponent(theme)}`,
+        { signal: combineSignals(10000, signal) }
+      );
+      if (!response.ok) {
+        if (response.status === 429) break;
+        continue;
+      }
+
+      const data = await response.json();
+      const quality = (data.records || []).filter((item: HarvardArtObject) => {
+        if (!item.primaryimageurl && (!item.images || item.images.length === 0)) return false;
+        if (!item.title || item.title.toLowerCase() === 'untitled') return false;
+        if (!item.people || item.people.length === 0) return false;
+        return true;
+      });
+      artworks.push(...quality);
+    }
+
+    return shuffle(artworks).slice(0, count);
+  } catch (error) {
+    if (!isAbortError(error)) console.error('Harvard design fetch failed:', error);
     return [];
   }
 };
@@ -339,7 +411,8 @@ export const fetchHarvardArtworks = async (count: number = 32): Promise<HarvardA
  */
 export const searchHarvardByTag = async (
   tag: string,
-  count: number = 32
+  count: number = 32,
+  classification: string | null = 'Photographs'
 ): Promise<HarvardArtObject[]> => {
   if (!API_KEY) {
     console.warn('Harvard Art Museums API key not found');
@@ -349,8 +422,9 @@ export const searchHarvardByTag = async (
   try {
     console.log(`Searching Harvard for tag: "${tag}"`);
 
+    const clsParam = classification ? `&classification=${encodeURIComponent(classification)}` : '';
     const response = await fetch(
-      `${BASE_URL}/object?apikey=${API_KEY}&q=${encodeURIComponent(tag)}&size=${count * 2}&hasimage=1&classification=Photographs`,
+      `${BASE_URL}/object?apikey=${API_KEY}&q=${encodeURIComponent(tag)}&size=${count * 2}&hasimage=1${clsParam}`,
       { signal: AbortSignal.timeout(10000) }
     );
 

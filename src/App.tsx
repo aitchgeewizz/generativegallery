@@ -6,6 +6,7 @@ import { Intro } from './components/Intro';
 import { AboutModal } from './components/AboutModal';
 import { collections, getCollection } from './collections/registry';
 import { PortfolioItem, ActiveFilter } from './types';
+import { isAbortError } from './utils/abort';
 
 type Theme = 'dark' | 'light';
 const THEME_STORAGE_KEY = 'slowerstranger:theme';
@@ -88,6 +89,40 @@ const withTimeout = async <T,>(
   return result;
 };
 
+/**
+ * Session variety: remember which works have already hung on the wall
+ * this visit, and drop them from later rooms. sessionStorage, not
+ * localStorage — tomorrow's visit starts clean, which suits a daily
+ * ritual better than a permanent ledger.
+ *
+ * Signature is (imageUrl || url) rather than item.id because adapters
+ * assign id by array index — every refresh the first item is id=0
+ * regardless of which artwork it actually is.
+ */
+const SEEN_KEY = 'slowerstranger:seenThisSession';
+const SEEN_CAP = 500;
+
+const signatureOf = (i: PortfolioItem): string =>
+  i.imageUrl || i.url || String(i.id);
+
+const loadSeen = (): Set<string> => {
+  try {
+    return new Set<string>(JSON.parse(sessionStorage.getItem(SEEN_KEY) || '[]'));
+  } catch {
+    return new Set();
+  }
+};
+
+const rememberSeen = (items: PortfolioItem[]) => {
+  try {
+    const seen = loadSeen();
+    for (const it of items) seen.add(signatureOf(it));
+    sessionStorage.setItem(SEEN_KEY, JSON.stringify([...seen].slice(-SEEN_CAP)));
+  } catch {
+    // Storage unavailable — variety degrades gracefully.
+  }
+};
+
 function App() {
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,28 +153,23 @@ function App() {
   // load-bearing for this project.
   const [sourceMode, setSourceMode] = useState<SourceMode>(() => {
     const saved = localStorage.getItem(SOURCE_STORAGE_KEY);
-    const valid: SourceMode[] = ['mixed', 'met-design', 'art-institute', 'harvard'];
+    const valid: SourceMode[] = ['mixed', 'met-design', 'art-institute', 'harvard', 'vam'];
     return valid.includes(saved as SourceMode) ? (saved as SourceMode) : 'mixed';
   });
 
   // Session-wide set of artwork signatures already shown. Prevents the
   // same artwork reappearing across refreshes / category switches.
-  // Lives in a ref so it survives re-renders but resets on a hard page
-  // reload. Each API has a finite popular-page bias, so without this
-  // the user sees the same hero pieces over and over.
-  //
-  // We key off (imageUrl || url) rather than item.id because adapters
-  // assign id by array index — every refresh, the first item is id=0
-  // regardless of what artwork it actually is, so id-based dedup
-  // silently treated new artworks as already-seen.
-  const seenSignaturesRef = useRef<Set<string>>(new Set());
+  // Seeded from sessionStorage so variety survives a reload within the
+  // same visit; each API has a finite popular-page bias, so without
+  // this the user sees the same hero pieces over and over.
+  const seenSignaturesRef = useRef<Set<string>>(loadSeen());
 
   useEffect(() => {
     let cancelled = false;
-
-    /** Stable cross-refresh signature for an artwork. */
-    const signatureOf = (i: PortfolioItem): string =>
-      i.imageUrl || i.url || String(i.id);
+    // Abort in-flight archive fetches when the effect re-runs (rapid
+    // refresh, source switch) or unmounts — StrictMode's dev double-mount
+    // was silently running the whole fetch storm twice.
+    const controller = new AbortController();
 
     /** Drop items the user has already been served this session, AND
      *  add the kept items' signatures to the seen-set so a follow-up
@@ -171,12 +201,12 @@ function App() {
 
           const designPromise = designCollection
             ? withTimeout(
-                designCollection.fetchItems(DESIGN_RESERVED),
+                designCollection.fetchItems(DESIGN_RESERVED, controller.signal),
                 SOURCE_TIMEOUT_MS,
                 [] as PortfolioItem[],
                 designCollection.name,
               ).catch((err) => {
-                console.warn(`${designCollection.name} failed:`, err);
+                if (!isAbortError(err)) console.warn(`${designCollection.name} failed:`, err);
                 return [] as PortfolioItem[];
               })
             : Promise.resolve([] as PortfolioItem[]);
@@ -184,9 +214,9 @@ function App() {
           const supportingPromise = Promise.all(
             supportingCollections.map(async (c) => {
               try {
-                return await c.fetchItems(PER_SUPPORTING_SOURCE);
+                return await c.fetchItems(PER_SUPPORTING_SOURCE, controller.signal);
               } catch (err) {
-                console.warn(`${c.name} failed:`, err);
+                if (!isAbortError(err)) console.warn(`${c.name} failed:`, err);
                 return [] as PortfolioItem[];
               }
             }),
@@ -210,7 +240,7 @@ function App() {
           console.log(`Loading ${HANDFUL} from ${c.name}`);
           raw = filterAndMarkUnseen(
             await withTimeout(
-              c.fetchItems(HANDFUL),
+              c.fetchItems(HANDFUL, controller.signal),
               SOURCE_TIMEOUT_MS,
               [] as PortfolioItem[],
               c.name,
@@ -225,12 +255,12 @@ function App() {
           const second = sourceMode === 'mixed'
             ? await Promise.all(
                 collections.map((c) =>
-                  c.fetchItems(PER_SUPPORTING_SOURCE).catch(() => [] as PortfolioItem[]),
+                  c.fetchItems(PER_SUPPORTING_SOURCE, controller.signal).catch(() => [] as PortfolioItem[]),
                 ),
               )
             : [
                 await withTimeout(
-                  getCollection(sourceMode)?.fetchItems(HANDFUL) || Promise.resolve([] as PortfolioItem[]),
+                  getCollection(sourceMode)?.fetchItems(HANDFUL, controller.signal) || Promise.resolve([] as PortfolioItem[]),
                   SOURCE_TIMEOUT_MS,
                   [] as PortfolioItem[],
                   getCollection(sourceMode)?.name || 'Archive',
@@ -247,7 +277,8 @@ function App() {
         }
 
         const placed = layoutCentered(raw);
-        console.log(`Loaded ${placed.length} items (seen=${seenSignaturesRef.current.size})`);
+        rememberSeen(placed);
+        console.log(`Loaded ${placed.length} items (${sourceMode}, seen=${seenSignaturesRef.current.size})`);
         setItems(placed);
         setLoading(false);
       } catch (err) {
@@ -264,6 +295,7 @@ function App() {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [refreshSeed, activeFilter.mode, sourceMode]);
 
