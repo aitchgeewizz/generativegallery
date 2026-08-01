@@ -1,4 +1,5 @@
 import { PortfolioItem } from '../types';
+import { isAbortError } from '../utils/abort';
 import {
   fetchRandomDesignObjects,
   getDesignImageUrl,
@@ -140,7 +141,7 @@ export const generateDesignItems = async (count: number = 32, signal?: AbortSign
     console.log(`Returning ${items.length} design items from Cooper Hewitt`);
     return items;
   } catch (error) {
-    console.error('Cooper Hewitt API failed:', error);
+    if (!isAbortError(error)) console.error('Cooper Hewitt API failed:', error);
     // Return empty — App.tsx will compensate by pulling more from the
     // other sources. We do not pad with broken hand-coded stubs.
     return [];

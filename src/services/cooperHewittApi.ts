@@ -5,7 +5,7 @@
  */
 
 import { shuffle } from '../utils/shuffle';
-import { combineSignals } from '../utils/abort';
+import { combineSignals, isAbortError } from '../utils/abort';
 
 export interface DesignObjectData {
   id: string;
@@ -152,7 +152,7 @@ const searchDesignObjects = async (
 
     return [];
   } catch (error) {
-    console.error('Failed to search design objects:', error);
+    if (!isAbortError(error)) console.error('Failed to search design objects:', error);
     return [];
   }
 };

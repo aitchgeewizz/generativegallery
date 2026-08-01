@@ -1,4 +1,5 @@
 import { PortfolioItem } from '../types';
+import { isAbortError } from '../utils/abort';
 import {
   fetchRandomArtworks,
   searchArtworksByTag,
@@ -140,7 +141,7 @@ export const generateArtworkItems = async (count: number = 32, signal?: AbortSig
     return items;
 
   } catch (error) {
-    console.error('Failed to generate artwork items:', error);
+    if (!isAbortError(error)) console.error('Failed to generate artwork items:', error);
     // Return empty array - let the app handle the error state
     // NO FALLBACK to broken images
     throw error;

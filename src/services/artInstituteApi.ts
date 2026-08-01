@@ -136,6 +136,9 @@ export const fetchRandomArtworks = async (count: number = 32, signal?: AbortSign
     }
 
     if (idSet.size === 0) {
+      // An aborted run reaches here with zero IDs; report it as the
+      // abort it is, not as an archive failure.
+      signal?.throwIfAborted();
       throw new Error('No artworks found from any theme');
     }
 
