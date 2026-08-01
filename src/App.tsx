@@ -4,7 +4,7 @@ import { InfiniteCanvas } from './components/InfiniteCanvas';
 import { TopNav, SourceMode } from './components/TopNav';
 import { Intro } from './components/Intro';
 import { AboutModal } from './components/AboutModal';
-import { collections, getCollection } from './collections/registry';
+import { collections } from './collections/registry';
 import { PortfolioItem, ActiveFilter } from './types';
 import { isAbortError } from './utils/abort';
 
@@ -17,11 +17,10 @@ const SOURCE_STORAGE_KEY = 'slowerstranger:sourceMode';
  * not infinite. Twenty-four works in a looped 6x4 room keeps the
  * viewport full on tall screens without adding new content as you drag.
  *
- * Cooper Hewitt gets reserved presence because design archives are
- * central to the project, while the other sources fill the room around it.
+ * The design lens gets reserved presence because design archives are
+ * central to the project, while art and photo fill the room around it.
  */
 const HANDFUL = 24;
-const COOPER_HEWITT_ID = 'met-design';
 const DESIGN_RESERVED = 8;
 const PER_SUPPORTING_SOURCE = 12;
 const SOURCE_TIMEOUT_MS = 8500;
@@ -148,13 +147,22 @@ function App() {
 
   const handleThemeToggle = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
-  // Quiet archive lens. Mixed is still the default experience, but
-  // Design remains intentionally reachable because Cooper Hewitt is
-  // load-bearing for this project.
+  // Curatorial lens. Mixed is the default experience; the other pills
+  // are lenses over multiple archives, never per-archive tabs.
   const [sourceMode, setSourceMode] = useState<SourceMode>(() => {
     const saved = localStorage.getItem(SOURCE_STORAGE_KEY);
-    const valid: SourceMode[] = ['mixed', 'met-design', 'art-institute', 'harvard', 'vam'];
-    return valid.includes(saved as SourceMode) ? (saved as SourceMode) : 'mixed';
+    // Older builds stored per-archive ids; map them onto lenses so a
+    // returning visitor lands in the equivalent room.
+    const legacy: Record<string, SourceMode> = {
+      'met-design': 'design',
+      'vam': 'design',
+      'harvard-design': 'design',
+      'art-institute': 'art',
+      'harvard': 'photo',
+    };
+    const candidate = (saved && legacy[saved]) || saved;
+    const valid: SourceMode[] = ['mixed', 'design', 'art', 'photo'];
+    return valid.includes(candidate as SourceMode) ? (candidate as SourceMode) : 'mixed';
   });
 
   // Session-wide set of artwork signatures already shown. Prevents the
@@ -193,37 +201,51 @@ function App() {
       try {
         let raw: PortfolioItem[];
 
+        /** Fetch every archive in a lens in parallel and interleave the
+         *  pages so no single archive dominates the room. Registry order
+         *  leads the interleave — Cooper Hewitt first for design. */
+        const fetchLensGroup = async (
+          lens: 'design' | 'art' | 'photo',
+          perMember: number,
+        ): Promise<PortfolioItem[]> => {
+          const members = collections.filter((c) => c.lens === lens);
+          const pages = await Promise.all(
+            members.map((c) =>
+              withTimeout(
+                c.fetchItems(perMember, controller.signal),
+                SOURCE_TIMEOUT_MS,
+                [] as PortfolioItem[],
+                c.name,
+              ).catch((err) => {
+                if (!isAbortError(err)) console.warn(`${c.name} failed:`, err);
+                return [] as PortfolioItem[];
+              }),
+            ),
+          );
+          return interleave(pages);
+        };
+
         if (sourceMode === 'mixed') {
           console.log(`Loading mixed room (${HANDFUL}) from ${collections.length} archives`);
 
-          const designCollection = collections.find((c) => c.id === COOPER_HEWITT_ID);
-          const supportingCollections = collections.filter((c) => c.id !== COOPER_HEWITT_ID);
-
-          const designPromise = designCollection
-            ? withTimeout(
-                designCollection.fetchItems(DESIGN_RESERVED, controller.signal),
-                SOURCE_TIMEOUT_MS,
-                [] as PortfolioItem[],
-                designCollection.name,
-              ).catch((err) => {
-                if (!isAbortError(err)) console.warn(`${designCollection.name} failed:`, err);
-                return [] as PortfolioItem[];
-              })
-            : Promise.resolve([] as PortfolioItem[]);
-
+          // Design keeps reserved presence (the thesis: design archives
+          // are central) — drawn from the whole design lens, so Cooper
+          // Hewitt leads and the V&A and Bauhaus threads deepen it.
           const supportingPromise = Promise.all(
-            supportingCollections.map(async (c) => {
-              try {
-                return await c.fetchItems(PER_SUPPORTING_SOURCE, controller.signal);
-              } catch (err) {
-                if (!isAbortError(err)) console.warn(`${c.name} failed:`, err);
-                return [] as PortfolioItem[];
-              }
-            }),
+            collections
+              .filter((c) => c.lens !== 'design')
+              .map(async (c) => {
+                try {
+                  return await c.fetchItems(PER_SUPPORTING_SOURCE, controller.signal);
+                } catch (err) {
+                  if (!isAbortError(err)) console.warn(`${c.name} failed:`, err);
+                  return [] as PortfolioItem[];
+                }
+              }),
           );
 
           const [designItems, supportingItems] = await Promise.all([
-            designPromise,
+            fetchLensGroup('design', DESIGN_RESERVED),
             supportingPromise,
           ]);
 
@@ -235,17 +257,13 @@ function App() {
 
           raw = interleave([freshDesign, freshSupporting]).slice(0, HANDFUL);
         } else {
-          const c = getCollection(sourceMode);
-          if (!c) throw new Error(`Unknown source: ${sourceMode}`);
-          console.log(`Loading ${HANDFUL} from ${c.name}`);
-          raw = filterAndMarkUnseen(
-            await withTimeout(
-              c.fetchItems(HANDFUL, controller.signal),
-              SOURCE_TIMEOUT_MS,
-              [] as PortfolioItem[],
-              c.name,
-            ),
-          ).slice(0, HANDFUL);
+          const members = collections.filter((c) => c.lens === sourceMode);
+          if (members.length === 0) throw new Error(`Unknown lens: ${sourceMode}`);
+          console.log(
+            `Loading ${HANDFUL} from the ${sourceMode} lens (${members.length} ${members.length === 1 ? 'archive' : 'archives'})`,
+          );
+          const perMember = Math.ceil(HANDFUL / members.length) + 4;
+          raw = filterAndMarkUnseen(await fetchLensGroup(sourceMode, perMember)).slice(0, HANDFUL);
         }
 
         // If APIs return stale or sparse data, kick a second pass. This
@@ -253,20 +271,15 @@ function App() {
         if (!cancelled && raw.length > 0 && raw.length < HANDFUL * 0.7) {
           console.log(`Only ${raw.length} unseen works; fetching a second pass`);
           const second = sourceMode === 'mixed'
-            ? await Promise.all(
-                collections.map((c) =>
-                  c.fetchItems(PER_SUPPORTING_SOURCE, controller.signal).catch(() => [] as PortfolioItem[]),
+            ? interleave(
+                await Promise.all(
+                  collections.map((c) =>
+                    c.fetchItems(PER_SUPPORTING_SOURCE, controller.signal).catch(() => [] as PortfolioItem[]),
+                  ),
                 ),
               )
-            : [
-                await withTimeout(
-                  getCollection(sourceMode)?.fetchItems(HANDFUL, controller.signal) || Promise.resolve([] as PortfolioItem[]),
-                  SOURCE_TIMEOUT_MS,
-                  [] as PortfolioItem[],
-                  getCollection(sourceMode)?.name || 'Archive',
-                ).catch(() => [] as PortfolioItem[]),
-              ];
-          const moreUnseen = filterAndMarkUnseen(interleave(second));
+            : await fetchLensGroup(sourceMode, HANDFUL);
+          const moreUnseen = filterAndMarkUnseen(second);
           raw = [...raw, ...moreUnseen].slice(0, HANDFUL);
         }
 

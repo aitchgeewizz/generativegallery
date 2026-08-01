@@ -3,12 +3,12 @@ import { generateHarvardDesignItems, searchHarvardDesignItemsByTag } from '../da
 
 /**
  * Busch-Reisinger / Bauhaus design thread from Harvard Art Museums.
- * Registered so the mixed wall blends it in, but intentionally absent
- * from TopNav's SOURCE_OPTIONS — the Photography pill stays pure, and
- * this thread has no pill of its own.
+ * Hangs under the Design lens alongside Cooper Hewitt and the V&A —
+ * the Photo pill stays pure photography.
  */
 export const harvardDesignCollection: CollectionDefinition = {
   id: 'harvard-design',
+  lens: 'design',
   name: 'Bauhaus & Design',
   description: 'Harvard Art Museums — Busch-Reisinger design holdings',
   icon: 'BR',

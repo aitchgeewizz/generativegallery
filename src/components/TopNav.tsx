@@ -1,6 +1,11 @@
 import { motion } from 'framer-motion';
 
-export type SourceMode = 'mixed' | 'art-institute' | 'met-design' | 'harvard' | 'vam';
+/**
+ * The nav offers curatorial lenses, not source archives. Every archive
+ * feeds one of three lenses (see collections/types.ts); new archives
+ * join a lens instead of earning a pill. Four pills, forever.
+ */
+export type SourceMode = 'mixed' | 'design' | 'art' | 'photo';
 export type Theme = 'dark' | 'light';
 
 interface TopNavProps {
@@ -14,10 +19,9 @@ interface TopNavProps {
 
 const SOURCE_OPTIONS: Array<{ id: SourceMode; label: string }> = [
   { id: 'mixed', label: 'All' },
-  { id: 'met-design', label: 'Design' },
-  { id: 'art-institute', label: 'Art' },
-  { id: 'harvard', label: 'Photo' },
-  { id: 'vam', label: 'Print & Pattern' },
+  { id: 'design', label: 'Design' },
+  { id: 'art', label: 'Art' },
+  { id: 'photo', label: 'Photo' },
 ];
 
 const RefreshIcon = () => (

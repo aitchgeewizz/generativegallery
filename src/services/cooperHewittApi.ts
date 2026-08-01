@@ -174,56 +174,73 @@ export const fetchRandomDesignObjects = async (count: number = 32, signal?: Abor
   try {
     console.log(`Fetching ${count} design objects from Cooper Hewitt...`);
 
-    const results: DesignObjectData[] = [];
-    const seen = new Set<string>();
-
-    // Distinct medium / object-type terms across Cooper Hewitt's
-    // catalogue. We shuffle the pool and pick a handful per fetch so
-    // different refreshes hit different slices of the archive, and
-    // we use a random page per term so we're not always on page 1
-    // where the popular hero pieces cluster.
-    const ALL_TERMS = [
-      'poster', 'textile', 'wallpaper', 'ceramic', 'furniture', 'metalwork',
-      'glass', 'jewelry', 'illustration', 'drawing', 'lace', 'wallcovering',
-      'chair', 'lamp', 'tableware', 'embroidery', 'printed textile',
-      'graphic design', 'sample', 'tile', 'fan', 'book cover',
+    // Cooper Hewitt exists in this project for graphic design first:
+    // posters, advertising, typography, illustration, printed matter.
+    // A flat term pool kept drifting the wall toward ceramics and
+    // chairs (four random terms could easily contain zero graphic
+    // ones), so terms live in buckets with a floor — the majority of
+    // every handful is graphic material, while pattern and object
+    // season the room rather than furnish it.
+    const GRAPHIC_TERMS = [
+      'poster', 'graphic design', 'advertisement', 'illustration',
+      'typography', 'book cover', 'print', 'design drawing',
     ];
-    const TERMS_PER_FETCH = 4;
-    const distinctTerms = [...ALL_TERMS]
-      .sort(() => Math.random() - 0.5)
-      .slice(0, TERMS_PER_FETCH);
-    const target = Math.max(Math.ceil(count * 1.5), 16);
+    const PATTERN_TERMS = ['wallpaper', 'sidewall', 'printed textile', 'embroidery'];
+    const OBJECT_TERMS = ['furniture', 'ceramic', 'glass', 'metalwork', 'jewelry'];
+    const GRAPHIC_SHARE = 0.6;
 
-    const pages = await Promise.all(
-      distinctTerms.map(async (term) => {
-        // Pages 1–20: still favours well-described records but avoids
-        // the pages 1–5 hero cluster that returns the same items.
-        const randomPage = Math.floor(Math.random() * 20) + 1;
-        try {
-          return await searchDesignObjects(term, randomPage, 100, signal);
-        } catch {
-          return [] as DesignObjectData[];
-        }
-      }),
-    );
-
-    for (const page of pages) {
-      for (const obj of page) {
-        if (results.length >= target) break;
-        if (!getDesignImageUrl(obj)) continue;
-        if (seen.has(obj.id)) continue;
-        seen.add(obj.id);
-        results.push(obj);
+    const pick = (pool: string[], n: number) => shuffle(pool).slice(0, n);
+    const fetchTerm = async (term: string) => {
+      // Pages 1–20: still favours well-described records but avoids
+      // the pages 1–5 hero cluster that returns the same items.
+      const randomPage = Math.floor(Math.random() * 20) + 1;
+      try {
+        return await searchDesignObjects(term, randomPage, 100, signal);
+      } catch {
+        return [] as DesignObjectData[];
       }
-      if (results.length >= target) break;
-    }
+    };
 
-    // Shuffle and limit to requested count so each load surfaces a different
-    // ordering of whatever pool we built.
-    const shuffled = shuffle(results);
-    const finalResults = shuffled.slice(0, count);
+    // Two graphic terms, one pattern, one object — same four requests
+    // as before, different centre of gravity.
+    const [graphicPages, seasoningPages] = await Promise.all([
+      Promise.all(pick(GRAPHIC_TERMS, 2).map(fetchTerm)),
+      Promise.all([...pick(PATTERN_TERMS, 1), ...pick(OBJECT_TERMS, 1)].map(fetchTerm)),
+    ]);
 
-    console.log(`Successfully loaded ${finalResults.length} design objects from Cooper Hewitt (pool of ${results.length})`);
+    const seen = new Set<string>();
+    const usable = (pages: DesignObjectData[][]): DesignObjectData[] => {
+      const out: DesignObjectData[] = [];
+      for (const page of pages) {
+        for (const obj of page) {
+          if (!getDesignImageUrl(obj)) continue;
+          if (seen.has(obj.id)) continue;
+          seen.add(obj.id);
+          out.push(obj);
+        }
+      }
+      return out;
+    };
+
+    const graphicPool = shuffle(usable(graphicPages));
+    const seasoningPool = shuffle(usable(seasoningPages));
+
+    // Fill the graphic floor first; season with pattern and object;
+    // backfill from whichever pool still has works so a thin API day
+    // never shrinks the handful.
+    const target = Math.max(Math.ceil(count * 1.5), 16);
+    const graphicFloor = Math.ceil(target * GRAPHIC_SHARE);
+    const results = [
+      ...graphicPool.slice(0, graphicFloor),
+      ...seasoningPool.slice(0, target - Math.min(graphicPool.length, graphicFloor)),
+      ...graphicPool.slice(graphicFloor),
+    ].slice(0, target);
+
+    const finalResults = shuffle(results).slice(0, count);
+
+    console.log(
+      `Loaded ${finalResults.length} Cooper Hewitt objects (${Math.min(graphicPool.length, graphicFloor)} graphic floor of ${target})`,
+    );
 
     return finalResults;
   } catch (error) {
