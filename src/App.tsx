@@ -7,6 +7,7 @@ import { AboutModal } from './components/AboutModal';
 import { collections } from './collections/registry';
 import { PortfolioItem, ActiveFilter } from './types';
 import { isAbortError } from './utils/abort';
+import { extractArtistName } from './utils/tagExtractor';
 
 type Theme = 'dark' | 'light';
 const THEME_STORAGE_KEY = 'slowerstranger:theme';
@@ -122,6 +123,30 @@ const rememberSeen = (items: PortfolioItem[]) => {
   }
 };
 
+/**
+ * At most `max` works by any one maker per room. Archives sometimes
+ * return a whole print portfolio in one page (eight plates of the same
+ * cycle), which turns a varied wall into one artist's slideshow.
+ * Unattributed works are exempt — the cap is about repetition of a
+ * hand, not about anonymity.
+ */
+const capPerMaker = (items: PortfolioItem[], max = 2): PortfolioItem[] => {
+  const byMaker = new Map<string, number>();
+  const out: PortfolioItem[] = [];
+  for (const item of items) {
+    const maker = extractArtistName(item)?.toLowerCase().trim();
+    if (!maker) {
+      out.push(item);
+      continue;
+    }
+    const n = byMaker.get(maker) ?? 0;
+    if (n >= max) continue;
+    byMaker.set(maker, n + 1);
+    out.push(item);
+  }
+  return out;
+};
+
 function App() {
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,10 +225,15 @@ function App() {
 
       try {
         let raw: PortfolioItem[];
+        // Everything fetched this load, pre seen-filter. If the session
+        // has already seen every fetchable work, repeats beat an empty
+        // room — this pool is the fallback.
+        let fallbackPool: PortfolioItem[] = [];
 
         /** Fetch every archive in a lens in parallel and interleave the
-         *  pages so no single archive dominates the room. Registry order
-         *  leads the interleave — Cooper Hewitt first for design. */
+         *  pages so no single archive dominates the room. Each member's
+         *  count scales by its lensWeight, and registry order leads the
+         *  interleave — Cooper Hewitt carries Design. */
         const fetchLensGroup = async (
           lens: 'design' | 'art' | 'photo',
           perMember: number,
@@ -212,7 +242,10 @@ function App() {
           const pages = await Promise.all(
             members.map((c) =>
               withTimeout(
-                c.fetchItems(perMember, controller.signal),
+                c.fetchItems(
+                  Math.max(2, Math.round(perMember * (c.lensWeight ?? 1))),
+                  controller.signal,
+                ),
                 SOURCE_TIMEOUT_MS,
                 [] as PortfolioItem[],
                 c.name,
@@ -249,8 +282,11 @@ function App() {
             supportingPromise,
           ]);
 
-          const freshDesign = filterAndMarkUnseen(designItems).slice(0, DESIGN_RESERVED);
-          const freshSupporting = filterAndMarkUnseen(interleave(supportingItems)).slice(
+          const supportingPool = interleave(supportingItems);
+          fallbackPool = interleave([designItems, supportingPool]);
+
+          const freshDesign = capPerMaker(filterAndMarkUnseen(designItems)).slice(0, DESIGN_RESERVED);
+          const freshSupporting = capPerMaker(filterAndMarkUnseen(supportingPool)).slice(
             0,
             HANDFUL - freshDesign.length,
           );
@@ -263,7 +299,8 @@ function App() {
             `Loading ${HANDFUL} from the ${sourceMode} lens (${members.length} ${members.length === 1 ? 'archive' : 'archives'})`,
           );
           const perMember = Math.ceil(HANDFUL / members.length) + 4;
-          raw = filterAndMarkUnseen(await fetchLensGroup(sourceMode, perMember)).slice(0, HANDFUL);
+          fallbackPool = await fetchLensGroup(sourceMode, perMember);
+          raw = capPerMaker(filterAndMarkUnseen(fallbackPool)).slice(0, HANDFUL);
         }
 
         // If APIs return stale or sparse data, kick a second pass. This
@@ -279,8 +316,16 @@ function App() {
                 ),
               )
             : await fetchLensGroup(sourceMode, HANDFUL);
-          const moreUnseen = filterAndMarkUnseen(second);
+          fallbackPool = [...fallbackPool, ...second];
+          const moreUnseen = capPerMaker(filterAndMarkUnseen(second));
           raw = [...raw, ...moreUnseen].slice(0, HANDFUL);
+        }
+
+        // Session has seen everything the archives returned: hang
+        // repeats rather than an error. Tomorrow starts clean anyway.
+        if (raw.length === 0 && fallbackPool.length > 0) {
+          console.log('All fetched works already seen this session; hanging repeats');
+          raw = capPerMaker(fallbackPool).slice(0, HANDFUL);
         }
 
         if (cancelled) return;

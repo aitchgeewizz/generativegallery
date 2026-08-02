@@ -393,6 +393,11 @@ export const fetchHarvardDesignWorks = async (count: number = 32, signal?: Abort
         if (!item.primaryimageurl && (!item.images || item.images.length === 0)) return false;
         if (!item.title || item.title.toLowerCase() === 'untitled') return false;
         if (!item.people || item.people.length === 0) return false;
+        // Documentation, not design: archive photos OF works ("Photographs
+        // of nine windows") belong to the catalogue, not the wall. Actual
+        // photography lives in the Photo lens.
+        if (item.classification === 'Photographs') return false;
+        if (/^photographs? of/i.test(item.title)) return false;
         return true;
       });
       artworks.push(...quality);

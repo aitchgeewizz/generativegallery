@@ -14,6 +14,12 @@ export interface CollectionDefinition {
   description: string;
   icon: string;
   lens: Lens;
+  /**
+   * Relative share of the lens wall (default 1). Lets one archive lead
+   * a lens — Cooper Hewitt carries Design while V&A and the Bauhaus
+   * thread season it — without any archive gaining its own pill.
+   */
+  lensWeight?: number;
   fetchItems: (count: number, signal?: AbortSignal) => Promise<PortfolioItem[]>;
   searchByTag: (tag: string, count: number, signal?: AbortSignal) => Promise<PortfolioItem[]>;
 }

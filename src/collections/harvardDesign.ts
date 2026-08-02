@@ -9,6 +9,7 @@ import { generateHarvardDesignItems, searchHarvardDesignItemsByTag } from '../da
 export const harvardDesignCollection: CollectionDefinition = {
   id: 'harvard-design',
   lens: 'design',
+  lensWeight: 0.4,
   name: 'Bauhaus & Design',
   description: 'Harvard Art Museums — Busch-Reisinger design holdings',
   icon: 'BR',

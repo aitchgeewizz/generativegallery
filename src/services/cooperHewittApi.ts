@@ -183,29 +183,35 @@ export const fetchRandomDesignObjects = async (count: number = 32, signal?: Abor
     // season the room rather than furnish it.
     const GRAPHIC_TERMS = [
       'poster', 'graphic design', 'advertisement', 'illustration',
-      'typography', 'book cover', 'print', 'design drawing',
+      'typography', 'book cover', 'magazine', 'label',
     ];
     const PATTERN_TERMS = ['wallpaper', 'sidewall', 'printed textile', 'embroidery'];
     const OBJECT_TERMS = ['furniture', 'ceramic', 'glass', 'metalwork', 'jewelry'];
-    const GRAPHIC_SHARE = 0.6;
+    const GRAPHIC_SHARE = 0.75;
 
     const pick = (pool: string[], n: number) => shuffle(pool).slice(0, n);
-    const fetchTerm = async (term: string) => {
-      // Pages 1–20: still favours well-described records but avoids
-      // the pages 1–5 hero cluster that returns the same items.
-      const randomPage = Math.floor(Math.random() * 20) + 1;
+    // Random page, capped shallow. The precise graphic terms (typography,
+    // label, magazine) run only a few pages deep in Cooper Hewitt's
+    // catalogue — a deep random page lands past the end and silently
+    // returns nothing, which is how object terms kept out-shouting the
+    // graphic ones. Overshoots retry once near the front.
+    const fetchTerm = async (term: string, maxPage = 8) => {
+      const randomPage = Math.floor(Math.random() * maxPage) + 1;
       try {
-        return await searchDesignObjects(term, randomPage, 100, signal);
+        const page = await searchDesignObjects(term, randomPage, 100, signal);
+        if (page.length > 0 || randomPage <= 2) return page;
+        return await searchDesignObjects(term, 1 + Math.floor(Math.random() * 2), 100, signal);
       } catch {
         return [] as DesignObjectData[];
       }
     };
 
-    // Two graphic terms, one pattern, one object — same four requests
-    // as before, different centre of gravity.
+    // Three graphic terms, one seasoning term (pattern and object
+    // alternate by coin flip) — same four requests, graphic centre.
+    const seasoningPool = Math.random() < 0.5 ? PATTERN_TERMS : OBJECT_TERMS;
     const [graphicPages, seasoningPages] = await Promise.all([
-      Promise.all(pick(GRAPHIC_TERMS, 2).map(fetchTerm)),
-      Promise.all([...pick(PATTERN_TERMS, 1), ...pick(OBJECT_TERMS, 1)].map(fetchTerm)),
+      Promise.all(pick(GRAPHIC_TERMS, 3).map((t) => fetchTerm(t))),
+      Promise.all(pick(seasoningPool, 1).map((t) => fetchTerm(t, 20))),
     ]);
 
     const seen = new Set<string>();
@@ -222,8 +228,17 @@ export const fetchRandomDesignObjects = async (count: number = 32, signal?: Abor
       return out;
     };
 
-    const graphicPool = shuffle(usable(graphicPages));
-    const seasoningPool = shuffle(usable(seasoningPages));
+    let graphicPool = shuffle(usable(graphicPages));
+    const seasoningResults = shuffle(usable(seasoningPages));
+
+    // Poster is the one graphic term with real depth (Cooper Hewitt's
+    // poster holdings run thousands of records). If the shallow terms
+    // came back thin, one rescue fetch keeps the graphic floor honest.
+    const floorCheck = Math.ceil(Math.max(Math.ceil(count * 1.5), 16) * GRAPHIC_SHARE);
+    if (graphicPool.length < floorCheck) {
+      const rescue = await fetchTerm('poster', 20);
+      graphicPool = shuffle([...graphicPool, ...usable([rescue])]);
+    }
 
     // Fill the graphic floor first; season with pattern and object;
     // backfill from whichever pool still has works so a thin API day
@@ -232,7 +247,7 @@ export const fetchRandomDesignObjects = async (count: number = 32, signal?: Abor
     const graphicFloor = Math.ceil(target * GRAPHIC_SHARE);
     const results = [
       ...graphicPool.slice(0, graphicFloor),
-      ...seasoningPool.slice(0, target - Math.min(graphicPool.length, graphicFloor)),
+      ...seasoningResults.slice(0, target - Math.min(graphicPool.length, graphicFloor)),
       ...graphicPool.slice(graphicFloor),
     ].slice(0, target);
 

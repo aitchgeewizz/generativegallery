@@ -132,16 +132,20 @@ interface VamSearchTerm {
  * a term's holdings ever shrink under its cap, that request fails and
  * returns nothing for the term — the other terms cover the handful.
  */
-const ALL_TERMS: VamSearchTerm[] = [
+const GRAPHIC_TERMS: VamSearchTerm[] = [
   { label: 'poster', params: { q_object_type: 'poster' }, maxPage: 280 },
-  { label: 'wallpaper', params: { q_object_type: 'wallpaper' }, maxPage: 44 },
-  { label: 'textile design', params: { q: 'textile design' }, maxPage: 640 },
   { label: 'bookbinding', params: { q: 'bookbinding' }, maxPage: 16 },
   { label: 'typography', params: { q: 'typography' }, maxPage: 20 },
   { label: 'printed ephemera', params: { q: 'printed ephemera' }, maxPage: 75 },
   { label: 'trade card', params: { q: 'trade card' }, maxPage: 12 },
 ];
-const TERMS_PER_FETCH = 4;
+const PATTERN_TERMS: VamSearchTerm[] = [
+  { label: 'wallpaper', params: { q_object_type: 'wallpaper' }, maxPage: 44 },
+  { label: 'textile design', params: { q: 'textile design' }, maxPage: 640 },
+];
+/** Posters are why the V&A is here; the poster term rides every fetch. */
+const POSTER_TERM = GRAPHIC_TERMS[0];
+const GRAPHIC_SHARE = 0.7;
 const PAGE_SIZE = 50;
 
 /**
@@ -224,34 +228,54 @@ const hydrateVamRecords = async (records: VamSearchRecord[], signal?: AbortSigna
  */
 export const fetchRandomVamObjects = async (count: number = 24, signal?: AbortSignal): Promise<VamObjectBundle[]> => {
   try {
-    console.log(`🎨 Fetching ${count} objects from the V&A…`);
+    console.log(`Fetching ${count} objects from the V&A…`);
 
-    const distinctTerms = shuffle(ALL_TERMS).slice(0, TERMS_PER_FETCH);
+    // Poster always rides, plus two more graphic threads and one
+    // pattern thread. Composition keeps a graphic floor so a 50-record
+    // textile page can't swamp the poster page in the shuffle.
+    const graphicTerms = [
+      POSTER_TERM,
+      ...shuffle(GRAPHIC_TERMS.slice(1)).slice(0, 2),
+    ];
+    const patternTerms = shuffle(PATTERN_TERMS).slice(0, 1);
 
-    const pages = await Promise.all(
-      distinctTerms.map((term) => {
-        const randomPage = Math.floor(Math.random() * term.maxPage) + 1;
-        return searchVamRecords(term.params, randomPage, PAGE_SIZE, signal);
-      })
-    );
+    const fetchTermPage = (term: VamSearchTerm) => {
+      const randomPage = Math.floor(Math.random() * term.maxPage) + 1;
+      return searchVamRecords(term.params, randomPage, PAGE_SIZE, signal);
+    };
+
+    const [graphicPages, patternPages] = await Promise.all([
+      Promise.all(graphicTerms.map(fetchTermPage)),
+      Promise.all(patternTerms.map(fetchTermPage)),
+    ]);
 
     const seen = new Set<string>();
-    const pool: VamSearchRecord[] = [];
-    for (const page of pages) {
-      for (const record of page) {
-        if (seen.has(record.systemNumber)) continue;
-        seen.add(record.systemNumber);
-        pool.push(record);
+    const dedupe = (pages: VamSearchRecord[][]): VamSearchRecord[] => {
+      const out: VamSearchRecord[] = [];
+      for (const page of pages) {
+        for (const record of page) {
+          if (seen.has(record.systemNumber)) continue;
+          seen.add(record.systemNumber);
+          out.push(record);
+        }
       }
-    }
+      return out;
+    };
 
-    const chosen = shuffle(pool).slice(0, count);
+    const graphicPool = shuffle(dedupe(graphicPages));
+    const patternPool = shuffle(dedupe(patternPages));
+    const graphicFloor = Math.ceil(count * GRAPHIC_SHARE);
+    const chosen = [
+      ...graphicPool.slice(0, graphicFloor),
+      ...patternPool.slice(0, count - Math.min(graphicPool.length, graphicFloor)),
+      ...graphicPool.slice(graphicFloor),
+    ].slice(0, count);
     const bundles = await hydrateVamRecords(chosen, signal);
 
-    console.log(`✅ Loaded ${bundles.length} V&A objects (pool of ${pool.length})`);
+    console.log(`Loaded ${bundles.length} V&A objects (graphic pool ${graphicPool.length}, pattern pool ${patternPool.length})`);
     return bundles;
   } catch (error) {
-    console.error('❌ V&A API failed:', error);
+    if (!isAbortError(error)) console.error('V&A API failed:', error);
     return [];
   }
 };
@@ -292,7 +316,7 @@ export const searchVamObjectsByTag = async (
     console.log(`✅ Found ${bundles.length} V&A objects for tag "${tag}"`);
     return bundles;
   } catch (error) {
-    console.error('❌ V&A tag search failed:', error);
+    console.error('V&A tag search failed:', error);
     return [];
   }
 };
