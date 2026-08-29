@@ -120,8 +120,113 @@ export const getDesignImageDimensions = (
   return { width: largest?.width, height: largest?.height };
 };
 
+/* ────────────────────────────────────────────────────────────────
+   Smithsonian Open Access fallback.
+
+   Cooper Hewitt's legacy REST API began returning HTTP 500 on every
+   request (observed Sept 2026; the collection site itself migrated
+   platforms). Cooper Hewitt is a Smithsonian museum, so the same
+   collection is reachable through api.si.edu (unit_code CHNDM):
+   CC0 records only — a smaller pool than the legacy API served, but
+   it includes the icons (Will Bradley's Chap-Book posters and kin)
+   and it answers with proper CORS.
+
+   Every legacy failure flips a sticky per-session switch so later
+   calls skip straight to the Smithsonian door. If the museum ever
+   revives the legacy API, its full catalogue returns automatically
+   on the next visit.
+
+   Key: free at api.data.gov (instant signup) → VITE_SMITHSONIAN_KEY.
+   DEMO_KEY works unkeyed but is rate-limited to ~30 requests/hour.
+   ──────────────────────────────────────────────────────────────── */
+const SI_BASE_URL = 'https://api.si.edu/openaccess/api/v1.0/search';
+const SI_KEY = import.meta.env.VITE_SMITHSONIAN_KEY || 'DEMO_KEY';
+let legacyApiDown = false;
+let warnedDemoKey = false;
+
+/** Map a Smithsonian EDAN row onto the legacy object shape so every
+ *  downstream consumer (adapters, curation buckets) works unchanged. */
+const mapSiRowToDesignObject = (row: any): DesignObjectData | null => {
+  const dnr = row?.content?.descriptiveNonRepeating;
+  const media = dnr?.online_media?.media?.[0];
+  if (!media?.content) return null;
+
+  const ft = row?.content?.freetext ?? {};
+  const first = (key: string, label?: string): string | undefined => {
+    const entries = ft[key];
+    if (!Array.isArray(entries)) return undefined;
+    const hit = label ? entries.find((e: any) => e?.label === label) : entries[0];
+    return hit?.content;
+  };
+
+  const sized = (max: number) => ({
+    url: `${media.content}&max=${max}`,
+    width: 0,
+    height: 0,
+    is_primary: '1',
+    image_id: media.idsId || row.id,
+  });
+
+  const cc0 =
+    dnr?.metadata_usage?.access === 'CC0' || media?.usage?.access === 'CC0';
+
+  return {
+    id: row.id,
+    title: row.title || 'Untitled',
+    url: dnr?.record_link,
+    date: first('date'),
+    medium: first('physicalDescription', 'Medium') || first('physicalDescription'),
+    description: first('notes', 'Description') || first('notes'),
+    creditline: first('creditLine'),
+    type: first('objectType'),
+    participants: Array.isArray(ft.name)
+      ? ft.name.map((n: any) => ({
+          person_name: String(n?.content || '').split(',')[0].trim(),
+          person_date: undefined,
+          role_name: n?.label,
+          role_display_name: n?.label,
+        }))
+      : undefined,
+    images: [{ b: sized(1600), z: sized(640), n: sized(320) }],
+    has_no_known_copyright: cc0 ? '1' : null,
+  };
+};
+
+const searchChndmObjects = async (
+  searchTerm: string,
+  page: number,
+  perPage: number,
+  signal?: AbortSignal,
+): Promise<DesignObjectData[]> => {
+  if (SI_KEY === 'DEMO_KEY' && !warnedDemoKey) {
+    warnedDemoKey = true;
+    console.warn(
+      'Cooper Hewitt via Smithsonian is using DEMO_KEY (about 30 requests/hour). ' +
+        'Get a free key at https://api.data.gov and set VITE_SMITHSONIAN_KEY.',
+    );
+  }
+
+  const q = `unit_code:"CHNDM" AND ${searchTerm}`;
+  const start = (page - 1) * perPage;
+  const response = await fetch(
+    `${SI_BASE_URL}?api_key=${SI_KEY}&q=${encodeURIComponent(q)}&rows=${perPage}&start=${start}`,
+    { signal: combineSignals(10000, signal) },
+  );
+  if (!response.ok) return [];
+
+  const data = await response.json();
+  const rows = data?.response?.rows;
+  if (!Array.isArray(rows)) return [];
+
+  return rows
+    .map(mapSiRowToDesignObject)
+    .filter((obj): obj is DesignObjectData => obj !== null);
+};
+
 /**
- * Search Cooper Hewitt collection for design objects
+ * Search Cooper Hewitt collection for design objects.
+ * Legacy REST first; Smithsonian Open Access when the legacy door
+ * fails (see block comment above).
  */
 const searchDesignObjects = async (
   searchTerm: string,
@@ -129,28 +234,40 @@ const searchDesignObjects = async (
   perPage: number = 100,
   signal?: AbortSignal
 ): Promise<DesignObjectData[]> => {
-  if (!API_KEY) {
-    console.warn('Cooper Hewitt API key not configured');
-    return [];
+  if (!legacyApiDown && API_KEY) {
+    try {
+      const response = await fetch(
+        `${BASE_URL}?method=cooperhewitt.search.objects&access_token=${API_KEY}&query=${encodeURIComponent(
+          searchTerm
+        )}&has_images=1&page=${page}&per_page=${perPage}`,
+        { signal: combineSignals(10000, signal) }
+      );
+
+      if (response.ok) {
+        const data: CooperHewittResponse = await response.json();
+        if (data.stat === 'ok' && data.objects && data.objects.length > 0) {
+          return data.objects.filter((obj) => obj.images && obj.images.length > 0);
+        }
+        return [];
+      }
+
+      // 4xx/5xx: the legacy API is answering but broken — switch doors.
+      legacyApiDown = true;
+      console.warn(`Cooper Hewitt legacy API returned ${response.status}; using Smithsonian Open Access`);
+    } catch (error) {
+      if (isAbortError(error)) return [];
+      if (error instanceof DOMException && error.name === 'TimeoutError') {
+        // A slow day is not a dead API; don't switch doors on timeouts.
+        return [];
+      }
+      // TypeError (CORS/network): the door is gone — switch.
+      legacyApiDown = true;
+      console.warn('Cooper Hewitt legacy API unreachable; using Smithsonian Open Access');
+    }
   }
 
   try {
-    const response = await fetch(
-      `${BASE_URL}?method=cooperhewitt.search.objects&access_token=${API_KEY}&query=${encodeURIComponent(
-        searchTerm
-      )}&has_images=1&page=${page}&per_page=${perPage}`,
-      { signal: combineSignals(10000, signal) }
-    );
-
-    if (!response.ok) return [];
-
-    const data: CooperHewittResponse = await response.json();
-
-    if (data.stat === 'ok' && data.objects && data.objects.length > 0) {
-      return data.objects.filter((obj) => obj.images && obj.images.length > 0);
-    }
-
-    return [];
+    return await searchChndmObjects(searchTerm, page, perPage, signal);
   } catch (error) {
     if (!isAbortError(error)) console.error('Failed to search design objects:', error);
     return [];
@@ -190,13 +307,17 @@ export const fetchRandomDesignObjects = async (count: number = 32, signal?: Abor
     const GRAPHIC_SHARE = 0.75;
 
     const pick = (pool: string[], n: number) => shuffle(pool).slice(0, n);
-    // Random page, capped shallow. The precise graphic terms (typography,
-    // label, magazine) run only a few pages deep in Cooper Hewitt's
-    // catalogue — a deep random page lands past the end and silently
-    // returns nothing, which is how object terms kept out-shouting the
-    // graphic ones. Overshoots retry once near the front.
-    const fetchTerm = async (term: string, maxPage = 8) => {
-      const randomPage = Math.floor(Math.random() * maxPage) + 1;
+    // Front-loaded page selection. The walls Hannah loved in the early
+    // builds came from pages 1–10, where Cooper Hewitt's relevance
+    // ranking keeps its famous, richly catalogued works — the hero
+    // pieces. The variety system later avoided those pages to stop
+    // repeats, but the session seen-set now handles repetition, so
+    // hero-avoidance only cost us the good stuff. Squaring the random
+    // draw biases toward the front (half of draws land on pages 1–3)
+    // while the tail still reaches maxPage for depth. Empty overshoots
+    // retry once at the very front.
+    const fetchTerm = async (term: string, maxPage = 10) => {
+      const randomPage = 1 + Math.floor(Math.random() ** 2 * maxPage);
       try {
         const page = await searchDesignObjects(term, randomPage, 100, signal);
         if (page.length > 0 || randomPage <= 2) return page;
@@ -206,11 +327,14 @@ export const fetchRandomDesignObjects = async (count: number = 32, signal?: Abor
       }
     };
 
-    // Three graphic terms, one seasoning term (pattern and object
-    // alternate by coin flip) — same four requests, graphic centre.
+    // Poster rides every fetch — in the early builds it was the first
+    // term of every load and it is the reason the Design room felt like
+    // graphic design. Two more graphic terms rotate behind it, plus one
+    // seasoning term (pattern and object alternate by coin flip).
     const seasoningPool = Math.random() < 0.5 ? PATTERN_TERMS : OBJECT_TERMS;
+    const graphicPicks = ['poster', ...pick(GRAPHIC_TERMS.filter((t) => t !== 'poster'), 2)];
     const [graphicPages, seasoningPages] = await Promise.all([
-      Promise.all(pick(GRAPHIC_TERMS, 3).map((t) => fetchTerm(t))),
+      Promise.all(graphicPicks.map((t) => fetchTerm(t))),
       Promise.all(pick(seasoningPool, 1).map((t) => fetchTerm(t, 20))),
     ]);
 
