@@ -295,7 +295,9 @@ export const ArtworkDetail = ({
       ? 'Public Domain. Free to use.'
       : item.copyrightStatus === 'no_known_copyright'
         ? 'No known copyright restrictions'
-        : 'Copyright status unknown';
+        : item.copyrightStatus === 'in_copyright'
+          ? 'In copyright. Shown at reduced size for study.'
+          : 'Copyright status unknown';
 
   return (
     // No outer AnimatePresence here — the parent (InfiniteCanvas)

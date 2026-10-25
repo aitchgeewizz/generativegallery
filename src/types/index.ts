@@ -65,7 +65,7 @@ export interface PortfolioItem {
   }>;
 
   // Copyright / license
-  copyrightStatus?: 'public_domain' | 'no_known_copyright' | 'unknown';
+  copyrightStatus?: 'public_domain' | 'no_known_copyright' | 'in_copyright' | 'unknown';
 }
 
 export interface ViewportBounds {
