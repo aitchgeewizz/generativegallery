@@ -35,7 +35,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const OUT_DIR = path.join(ROOT, 'public', 'shelf');
+const OUT_DIR = process.env.SHELF_OUT ? path.resolve(process.env.SHELF_OUT) : path.join(ROOT, 'public', 'shelf');
 const CACHE_DIR = path.join(ROOT, '.cache', 'shelf');
 const FRESH = process.argv.includes('--fresh');
 const CACHE_TTL_MS = 5 * 24 * 60 * 60 * 1000;
@@ -145,13 +145,20 @@ const makerKey = (name) =>
     .trim();
 const isNamed = (name) => !!name && !/unknown|unidentified|anonymous|not known|various/i.test(name);
 
-/** Deterministic shuffle so a rebuild with unchanged data gives the same shelf. */
+/**
+ * The week number salts every shuffle, so each weekly rebuild picks a
+ * different selection from the same pools, while two builds in the
+ * same week agree. SHELF_WEEK overrides it (to rebuild a past week).
+ */
+const WEEK = Number(process.env.SHELF_WEEK) || Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+
+/** Shuffle seeded by `seed` and the week. */
 const seeded = (seed) => {
   let s = seed >>> 0;
   return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
 };
 const shuffled = (arr, seed = 1) => {
-  const rand = seeded(seed);
+  const rand = seeded(seed + WEEK * 7919);
   const out = [...arr];
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
@@ -428,7 +435,7 @@ const rijksPosters = async () => {
   // read well over a thousand to shelve a couple of hundred.
   const RIJKS_READ = 1400;
   const step = Math.max(1, Math.floor(ids.length / RIJKS_READ));
-  const sample = shuffled(ids.filter((_, i) => i % step === 0), 21).slice(0, RIJKS_READ);
+  const sample = shuffled(ids.filter((_, i) => i % step === WEEK % step), 21).slice(0, RIJKS_READ);
 
   const items = [];
   for (const id of sample) {
@@ -569,7 +576,8 @@ const wpaPosters = async () => {
   // The collection is large; a few hundred is plenty for seasoning and
   // keeps the human pass over it manageable.
   // Human pass, 23 Nov 2026: wartime caricature, a swastika, yellowface
-  // staging. Add to this list after looking over each rebuild.
+  // staging. The weekly rebuild rotates which 240 hang, so works nobody
+  // has looked at will appear; add to this list when one should not.
   const WPA_HELD_BACK = /mikado|stamp .em out|australia and the war|don.?t tell him what you know|androcles and the lion/i;
   const fit = items.filter((i) => !WPA_HELD_BACK.test(`${i.title} ${i.shortDescription || ''}`));
   const picked = capPerTitle(shuffled(dedupe(fit), 61)).slice(0, 240);
@@ -835,6 +843,7 @@ const main = async () => {
     JSON.stringify(
       {
         builtAt: new Date().toISOString(),
+        week: WEEK,
         // Harvard's terms: stored data no older than two weeks.
         refreshBy: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
         counts: Object.fromEntries(Object.entries(shelves).map(([lens, list]) => [lens, list.length])),
@@ -843,7 +852,7 @@ const main = async () => {
       2,
     ) + '\n',
   );
-  console.log(`\nWritten to public/shelf/ in ${Math.round((Date.now() - started) / 1000)}s`);
+  console.log(`\nWritten to ${path.relative(ROOT, OUT_DIR) || OUT_DIR} in ${Math.round((Date.now() - started) / 1000)}s (week ${WEEK})`);
 };
 
 main().catch((err) => {
