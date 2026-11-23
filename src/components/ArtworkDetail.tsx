@@ -68,6 +68,15 @@ export const ArtworkDetail = ({
   // blurred underneath — the blur-up keeps the stage from going blank.
   const [stageSrc, setStageSrc] = useState(item?.imageUrl);
   const [stageLoaded, setStageLoaded] = useState(false);
+  // The stage is sized from the work's own proportions and the space
+  // available, not from the wall thumbnail (which is only ~400px and
+  // used to cap every work at that size). It grows to fill the stage
+  // but never past the picture's real pixel size, so a 768px museum
+  // image is not blown up into mush.
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageBox, setStageBox] = useState<{ w: number; h: number } | null>(null);
+  const [aspect, setAspect] = useState<number | null>(null);
+  const [nativeSize, setNativeSize] = useState<{ w: number; h: number } | null>(null);
   // Respect prefers-reduced-motion: prev/next slides become plain fades.
   const reduceMotion = useReducedMotion();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
@@ -113,11 +122,29 @@ export const ArtworkDetail = ({
     setMainImageError(false);
     setStageSrc(item?.imageUrl);
     setStageLoaded(false);
+    setAspect(item?.imageWidth && item?.imageHeight ? item.imageWidth / item.imageHeight : null);
+    setNativeSize(null);
     setZoom(1);
     setPanOffset({ x: 0, y: 0 });
     setExpandedSections(getDefaultExpandedSections(Boolean(artistName)));
     if (item) enrichment.reset();
   }, [item?.id, artistName]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Track the stage's inner size (it changes when the panel hides).
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const measure = () => {
+      const cs = getComputedStyle(el);
+      const w = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const h = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      setStageBox((prev) => (prev && prev.w === w && prev.h === h ? prev : { w, h }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [item?.id]);
 
   useEffect(() => {
     if (!item) return;
@@ -300,6 +327,29 @@ export const ArtworkDetail = ({
           ? 'In copyright. Shown at reduced size for study.'
           : 'Copyright status unknown';
 
+  // Width the stage asks for, read from the picture address (IIIF
+  // "843," or "!768,768", Harvard "?width=1600"). Used as the size cap
+  // until the full picture has loaded and reported its real size.
+  const requestedCap = (() => {
+    const url = stageSrc || '';
+    const bang = url.match(/\/full\/!(\d+),(\d+)\//);
+    if (bang) return { long: Number(bang[1]) };
+    const w = url.match(/\/full\/(\d+),\//) || url.match(/[?&]width=(\d+)/);
+    if (w) return { w: Number(w[1]) };
+    return null;
+  })();
+
+  const stageSize = (() => {
+    if (!stageBox || !aspect || stageBox.w <= 0 || stageBox.h <= 0) return undefined;
+    let w = Math.min(stageBox.w, stageBox.h * aspect);
+    let maxW = Infinity;
+    if (nativeSize) maxW = nativeSize.w;
+    else if (requestedCap?.w) maxW = requestedCap.w;
+    else if (requestedCap?.long) maxW = aspect >= 1 ? requestedCap.long : requestedCap.long * aspect;
+    w = Math.min(w, maxW);
+    return { width: Math.round(w), height: Math.round(w / aspect) };
+  })();
+
   return (
     // No outer AnimatePresence here — the parent (InfiniteCanvas)
     // wraps us so the close animation fires when selectedItem goes
@@ -335,6 +385,7 @@ export const ArtworkDetail = ({
               - swipe left/right (mobile only) → next/prev artwork
               - scroll wheel → zoom; double-click → toggle zoom */}
         <div
+          ref={stageRef}
           className={`absolute flex items-center justify-center transition-[left,right,bottom,top] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] p-3 md:p-5 ${panelHidden ? 'pb-16 md:pb-16' : ''}`}
           style={
             isMobile
@@ -409,6 +460,7 @@ export const ArtworkDetail = ({
                 }}
                 className="relative max-w-full max-h-full select-none"
                 style={{
+                  ...stageSize,
                   transform: `scale(${zoom}) translate(${panOffset.x}px, ${panOffset.y}px)`,
                   transformOrigin: 'center center',
                   cursor: zoom > 1 ? (isPanning ? 'grabbing' : 'grab') : 'zoom-in',
@@ -438,7 +490,15 @@ export const ArtworkDetail = ({
                     src={item.thumbnailUrl}
                     alt=""
                     aria-hidden
-                    className="max-w-full max-h-full object-contain select-none"
+                    className={
+                      stageSize
+                        ? 'absolute inset-0 w-full h-full object-contain select-none'
+                        : 'max-w-full max-h-full object-contain select-none'
+                    }
+                    onLoad={(e) => {
+                      const img = e.currentTarget;
+                      if (!aspect && img.naturalWidth && img.naturalHeight) setAspect(img.naturalWidth / img.naturalHeight);
+                    }}
                     style={{
                       filter: stageLoaded ? 'none' : 'blur(14px)',
                       opacity: stageLoaded ? 0 : 1,
@@ -451,15 +511,24 @@ export const ArtworkDetail = ({
                   src={stageSrc}
                   alt={item.title}
                   className={
-                    item.thumbnailUrl
-                      ? 'absolute inset-0 w-auto h-auto max-w-full max-h-full m-auto object-contain select-none'
-                      : 'max-w-full max-h-full object-contain select-none'
+                    stageSize
+                      ? 'absolute inset-0 w-full h-full object-contain select-none'
+                      : item.thumbnailUrl
+                        ? 'absolute inset-0 w-auto h-auto max-w-full max-h-full m-auto object-contain select-none'
+                        : 'max-w-full max-h-full object-contain select-none'
                   }
                   style={{
                     opacity: stageLoaded || !item.thumbnailUrl ? 1 : 0,
                     transition: 'opacity 0.35s ease',
                   }}
-                  onLoad={() => setStageLoaded(true)}
+                  onLoad={(e) => {
+                    const img = e.currentTarget;
+                    if (img.naturalWidth && img.naturalHeight) {
+                      setNativeSize({ w: img.naturalWidth, h: img.naturalHeight });
+                      setAspect(img.naturalWidth / img.naturalHeight);
+                    }
+                    setStageLoaded(true);
+                  }}
                   onError={() => {
                     // Step down once: full detail size → fallback → text card.
                     // Never back up again, or two failing addresses loop forever.

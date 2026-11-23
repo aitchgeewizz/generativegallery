@@ -17,6 +17,18 @@ interface PortfolioItemProps {
 const imageLoadedCache = new Map<string, boolean>();
 const imageErrorCache = new Map<string, boolean>();
 
+/**
+ * Pictures the wall has already fetched before hanging a new room.
+ * Tiles for these start fully shown, so a refresh changes the whole
+ * wall in one cut instead of each tile fading up on its own.
+ */
+export const markPicturesLoaded = (urls: string[]) => {
+  for (const url of urls) {
+    imageLoadedCache.set(url, true);
+    imageErrorCache.set(url, false);
+  }
+};
+
 // Memoised because the canvas renders ~9 looped copies of every item:
 // parent renders (detail open/close, tile crossings) shouldn't re-run
 // 200+ tiles whose item/onClick props are unchanged.

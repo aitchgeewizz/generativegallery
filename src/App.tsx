@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { InfiniteCanvas } from './components/InfiniteCanvas';
+import { markPicturesLoaded } from './components/PortfolioItem';
 import { TopNav, SourceMode } from './components/TopNav';
 import { Intro } from './components/Intro';
 import { AboutModal } from './components/AboutModal';
@@ -48,6 +49,30 @@ const layoutCentered = (raw: Array<ShelfItem | PortfolioItem>): PortfolioItem[] 
     x: (i % itemsPerRow) * (itemWidth + gap) + offsetX,
     y: Math.floor(i / itemsPerRow) * (itemHeight + gap) + offsetY,
   }));
+};
+
+/**
+ * Fetch a room's wall pictures before it is hung, so the old room stays
+ * up until the new one is ready and then the whole wall changes at
+ * once. Pictures that are slow or refused are not waited on past
+ * `timeoutMs`; their tiles load (or hang a stand-in) as usual.
+ */
+const fetchPictures = (items: PortfolioItem[], timeoutMs = 3000): Promise<string[]> => {
+  const urls = [...new Set(items.map((i) => i.thumbnailUrl || i.imageUrl).filter((u): u is string => !!u))];
+  const ready: string[] = [];
+  const each = urls.map(
+    (url) =>
+      new Promise<void>((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          ready.push(url);
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = url;
+      }),
+  );
+  return Promise.race([Promise.all(each), new Promise((r) => setTimeout(r, timeoutMs))]).then(() => [...ready]);
 };
 
 /**
@@ -131,6 +156,9 @@ function App() {
   // this the user sees the same hero pieces over and over.
   const seenSignaturesRef = useRef<Set<string>>(loadSeen());
 
+  // Whether a room has been hung yet this visit (see loadHandful).
+  const hasHungRef = useRef(false);
+
   // Stand-ins taken by the current room, for handleImageDead below.
   const standInsRef = useRef({ count: 0, handled: new Set<string>(), onWall: new Set<string>() });
 
@@ -138,8 +166,14 @@ function App() {
     let cancelled = false;
 
     const loadHandful = async () => {
-      setItems([]);
-      setLoading(true);
+      // The opening screen belongs to arriving. After that, a refresh or
+      // a lens change keeps the current room up while the next one is
+      // fetched, then changes the whole wall at once.
+      const arriving = !hasHungRef.current;
+      if (arriving) {
+        setItems([]);
+        setLoading(true);
+      }
       setError(null);
 
       try {
@@ -147,11 +181,16 @@ function App() {
         if (cancelled) return;
         if (room.length === 0) throw new Error('The shelf is empty. Try refreshing.');
 
+        const placed = layoutCentered(room);
+        if (!arriving) {
+          markPicturesLoaded(await fetchPictures(placed));
+          if (cancelled) return;
+        }
+
         for (const item of room) seenSignaturesRef.current.add(signatureOf(item));
         standInsRef.current = { count: 0, handled: new Set(), onWall: new Set(room.map(signatureOf)) };
-
-        const placed = layoutCentered(room);
         rememberSeen(placed);
+        hasHungRef.current = true;
         setItems(placed);
         setLoading(false);
       } catch (err) {
@@ -220,12 +259,11 @@ function App() {
       canExpandScope: false,
     });
 
-    setLoading(true);
-
     try {
       const found = await followThread(tagLabel, category, HANDFUL);
       standInsRef.current = { count: 0, handled: new Set(), onWall: new Set(found.map(signatureOf)) };
       const placed = layoutCentered(found);
+      markPicturesLoaded(await fetchPictures(placed));
 
       setItems(placed);
       setActiveFilter({
@@ -239,8 +277,6 @@ function App() {
       console.error('Thread search failed:', err);
       setItems([]);
     }
-
-    setLoading(false);
   };
 
   const handleClearFilter = () => {
