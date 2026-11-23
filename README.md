@@ -4,13 +4,13 @@
 > A few unexpected things at a time, pulled from real museum archives.
 > The next best thing to walking into a gallery, made for the days you can't.
 
-A slow museum-archive browser. Drag through a small handful of unexpected works pulled from three major public museum APIs — the Art Institute of Chicago, Cooper Hewitt (Smithsonian Design), and Harvard Art Museums. Click any piece for richer detail. Refresh for a new handful.
+A slow museum-archive browser. Drag through a small handful of unexpected works pulled from public museum archives: the Art Institute of Chicago, the V&A, Harvard Art Museums, the Rijksmuseum, the Cleveland Museum of Art and the Library of Congress. Click any piece for richer detail. Refresh for a new handful.
 
 The thesis (and why this exists at all) lives in [SPEC.md](SPEC.md).
 
 ## Running locally
 
-Requires Node 18+. The Art Institute API works without a key; Cooper Hewitt and Harvard need free API keys (see [API_KEYS_SETUP.md](API_KEYS_SETUP.md)).
+Requires Node 18+. The site itself needs no keys. Works are gathered ahead of time into `public/shelf/` by `node scripts/build-shelf.mjs`, which needs a free Harvard key in `.env` (`HARVARD_KEY`) and should be re-run at least every two weeks.
 
 ```bash
 cp .env.example .env       # fill in your API keys
@@ -40,9 +40,8 @@ src/
 │   ├── PortfolioItem.tsx         Single artwork tile
 │   ├── ArtworkDetail.tsx         Full-screen detail view
 │   └── CollectionSwitcher.tsx    Bottom-right pill (TBD: see SPEC.md, deprecated as primary nav)
-├── collections/                  One file per museum, registered together
-├── services/                     Raw API clients per museum
-├── data/                         API → PortfolioItem adapters
+├── shelf/                        Deals rooms from the pre-built shelf
+├── services/                     Wikipedia / Wikidata context for the detail view
 ├── hooks/                        Drag, grid loop, enrichment
 └── utils/tagExtractor.ts         Tag normalisation
 ```

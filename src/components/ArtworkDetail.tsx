@@ -290,8 +290,9 @@ export const ArtworkDetail = ({
       );
     }) || [];
 
-  const copyrightText =
-    item.copyrightStatus === 'public_domain'
+  const copyrightText = item.rightsNote
+    ? item.rightsNote
+    : item.copyrightStatus === 'public_domain'
       ? 'Public Domain. Free to use.'
       : item.copyrightStatus === 'no_known_copyright'
         ? 'No known copyright restrictions'
@@ -460,11 +461,10 @@ export const ArtworkDetail = ({
                   }}
                   onLoad={() => setStageLoaded(true)}
                   onError={() => {
-                    // Step down: full detail size → blessed fallback → text card
-                    if (item.fallbackUrl && stageSrc !== item.fallbackUrl) {
+                    // Step down once: full detail size → fallback → text card.
+                    // Never back up again, or two failing addresses loop forever.
+                    if (stageSrc === item.imageUrl && item.fallbackUrl && item.fallbackUrl !== item.imageUrl) {
                       setStageSrc(item.fallbackUrl);
-                    } else if (stageSrc !== item.imageUrl && item.imageUrl) {
-                      setStageSrc(item.imageUrl);
                     } else {
                       setMainImageError(true);
                     }

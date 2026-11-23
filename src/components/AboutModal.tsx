@@ -76,7 +76,7 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
               className="mt-6 type-body max-w-2xl"
               style={{ color: 'var(--text-2)' }}
             >
-              It&rsquo;s a browser that pulls from public museum APIs (Cooper Hewitt, Harvard, the Art Institute of Chicago) and throws a handful of pieces at you. Take them in. Sit with them. Read more if something stops you, or just be in awe of the work.
+              It&rsquo;s a browser that pulls from public museum APIs (the V&amp;A, Harvard, the Art Institute of Chicago) and throws a handful of pieces at you. Take them in. Sit with them. Read more if something stops you, or just be in awe of the work.
             </p>
 
             <h3
@@ -112,7 +112,7 @@ export const AboutModal = ({ open, onClose }: AboutModalProps) => {
               >
                 Hannah Gibson
               </a>
-              . Artwork courtesy of the Art Institute of Chicago, Cooper Hewitt Smithsonian Design Museum, and the Harvard Art Museums.
+              . Artwork courtesy of the Art Institute of Chicago, the Victoria and Albert Museum, the Harvard Art Museums, the Rijksmuseum, the Cleveland Museum of Art and the Library of Congress.
             </p>
           </motion.article>
         </motion.div>

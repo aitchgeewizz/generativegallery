@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <title>Slower Stranger</title>
-    <meta name="description" content="A slow museum-archive browser pulling real art and design from Cooper Hewitt, Harvard and the Art Institute of Chicago. A few unexpected pieces at a time." />
+    <meta name="description" content="A slow museum-archive browser pulling real art and design from the V&amp;A, Harvard and the Art Institute of Chicago. A few unexpected pieces at a time." />
 
     <!-- Open Graph / LinkedIn / Twitter -->
     <meta property="og:title" content="Slower Stranger" />
@@ -24,16 +24,15 @@
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-    <!-- Preconnect the JSON APIs hit on first load; dns-prefetch the image
-         CDNs that follow a beat later. -->
-    <link rel="preconnect" href="https://api.artic.edu" />
-    <link rel="preconnect" href="https://api.collection.cooperhewitt.org" />
-    <link rel="preconnect" href="https://api.harvardartmuseums.org" />
-    <link rel="preconnect" href="https://api.vam.ac.uk" />
-    <link rel="dns-prefetch" href="https://www.artic.edu" />
-    <link rel="dns-prefetch" href="https://images.collection.cooperhewitt.org" />
-    <link rel="dns-prefetch" href="https://nrs.harvard.edu" />
+    <!-- The wall's data ships with the site; only pictures come from the
+         museums. Preconnect the image servers a room is likely to use. -->
+    <link rel="preconnect" href="https://www.artic.edu" />
+    <link rel="preconnect" href="https://framemark.vam.ac.uk" />
+    <link rel="preconnect" href="https://nrs.harvard.edu" />
     <link rel="dns-prefetch" href="https://ids.lib.harvard.edu" />
+    <link rel="dns-prefetch" href="https://iiif.micr.io" />
+    <link rel="dns-prefetch" href="https://openaccess-cdn.clevelandart.org" />
+    <link rel="dns-prefetch" href="https://upload.wikimedia.org" />
     <link rel="dns-prefetch" href="https://framemark.vam.ac.uk" />
 
     <!-- Free Google font system:
@@ -63,7 +62,7 @@
         <div class="ns-wrap">
           <div class="ns-inner">
             <h1 class="ns-title">SLOWER STRANGER</h1>
-            <p class="ns-body">A few unexpected pieces of art and design we can appreciate and be inspired by. Not part of the algorithm but from those who came before us. Built with public museum APIs from the Art Institute of Chicago, Cooper Hewitt, and the Harvard Art Museums. Please enable JavaScript to explore the wall.</p>
+            <p class="ns-body">A few unexpected pieces of art and design we can appreciate and be inspired by. Not part of the algorithm but from those who came before us. Built with public museum APIs from the Art Institute of Chicago, the V&amp;A, and the Harvard Art Museums. Please enable JavaScript to explore the wall.</p>
           </div>
         </div>
       </noscript>

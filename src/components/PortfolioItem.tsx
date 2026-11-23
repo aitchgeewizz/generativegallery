@@ -5,6 +5,8 @@ import { PortfolioItem as PortfolioItemType } from '../types';
 interface PortfolioItemProps {
   item: PortfolioItemType;
   onClick: (item: PortfolioItemType) => void;
+  /** Called once when every address for this tile's picture has failed. */
+  onImageDead?: (item: PortfolioItemType) => void;
 }
 
 /**
@@ -18,7 +20,7 @@ const imageErrorCache = new Map<string, boolean>();
 // Memoised because the canvas renders ~9 looped copies of every item:
 // parent renders (detail open/close, tile crossings) shouldn't re-run
 // 200+ tiles whose item/onClick props are unchanged.
-export const PortfolioItem = memo(function PortfolioItem({ item, onClick }: PortfolioItemProps) {
+export const PortfolioItem = memo(function PortfolioItem({ item, onClick, onImageDead }: PortfolioItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const reduceMotion = useReducedMotion();
   // Prefer the small thumbnail variant for the 200×200 wall tile.
@@ -86,16 +88,20 @@ export const PortfolioItem = memo(function PortfolioItem({ item, onClick }: Port
                 }
               }}
               onError={() => {
-                // Step down: thumbnail → full image → fallback → text card
-                const next = [item.imageUrl, item.fallbackUrl].find(
-                  (u) => u && u !== currentImageUrl,
-                );
+                // One second address, then stop. The old step-down looked
+                // for "any address that is not the current one", which
+                // ping-ponged between two failing addresses forever and
+                // sent a refusing museum thousands of requests.
+                const second = item.fallbackUrl || item.imageUrl;
+                const next = currentImageUrl === imageUrl && second && second !== imageUrl ? second : undefined;
                 if (next) {
                   setCurrentImageUrl(next);
                   setImageLoaded(false);
                 } else {
-                  // Both primary and fallback failed - show SVG shape instead
+                  // Every address failed: show the text card, and tell the
+                  // wall so it can hang a stand-in here.
                   setImageError(true);
+                  onImageDead?.(item);
                   // Cache the error for duplicates
                   if (currentImageUrl) {
                     imageErrorCache.set(currentImageUrl, true);

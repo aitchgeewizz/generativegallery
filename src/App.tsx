@@ -1,13 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { InfiniteCanvas } from './components/InfiniteCanvas';
 import { TopNav, SourceMode } from './components/TopNav';
 import { Intro } from './components/Intro';
 import { AboutModal } from './components/AboutModal';
-import { collections } from './collections/registry';
 import { PortfolioItem, ActiveFilter } from './types';
-import { isAbortError } from './utils/abort';
-import { extractArtistName } from './utils/tagExtractor';
+import { dealRoom, followThread, signatureOf, standInFor, ShelfItem } from './shelf';
 
 type Theme = 'dark' | 'light';
 const THEME_STORAGE_KEY = 'slowerstranger:theme';
@@ -18,13 +16,10 @@ const SOURCE_STORAGE_KEY = 'slowerstranger:sourceMode';
  * not infinite. Twenty-four works in a looped 6x4 room keeps the
  * viewport full on tall screens without adding new content as you drag.
  *
- * The design lens gets reserved presence because design archives are
- * central to the project, while art and photo fill the room around it.
+ * Rooms are dealt from the shelf (src/shelf), which is gathered ahead
+ * of time, so a visit never waits on a museum's data service.
  */
 const HANDFUL = 24;
-const DESIGN_RESERVED = 8;
-const PER_SUPPORTING_SOURCE = 12;
-const SOURCE_TIMEOUT_MS = 8500;
 
 const GRID = {
   itemsPerRow: 6,
@@ -38,7 +33,7 @@ const GRID = {
  * canvas uses the loop dimensions to wrap, so positioning relative to
  * origin keeps the visible set on screen for the first paint.
  */
-const layoutCentered = (raw: PortfolioItem[]): PortfolioItem[] => {
+const layoutCentered = (raw: Array<ShelfItem | PortfolioItem>): PortfolioItem[] => {
   const { itemsPerRow, itemWidth, itemHeight, gap } = GRID;
   const rows = Math.ceil(raw.length / itemsPerRow);
   const cols = Math.min(raw.length, itemsPerRow);
@@ -56,40 +51,6 @@ const layoutCentered = (raw: PortfolioItem[]): PortfolioItem[] => {
 };
 
 /**
- * Interleave one item at a time from each input list so source mixing
- * is visible even in a short list (e.g. Fine Art / Design / Photo / Fine Art / ...).
- */
-const interleave = <T,>(lists: T[][]): T[] => {
-  const out: T[] = [];
-  const max = Math.max(...lists.map((l) => l.length));
-  for (let i = 0; i < max; i++) {
-    for (const list of lists) {
-      if (i < list.length) out.push(list[i]);
-    }
-  }
-  return out;
-};
-
-const withTimeout = async <T,>(
-  promise: Promise<T>,
-  ms: number,
-  fallback: T,
-  label: string,
-): Promise<T> => {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<T>((resolve) => {
-    timeoutId = setTimeout(() => {
-      console.warn(`${label} timed out after ${ms}ms`);
-      resolve(fallback);
-    }, ms);
-  });
-
-  const result = await Promise.race([promise, timeout]);
-  if (timeoutId) clearTimeout(timeoutId);
-  return result;
-};
-
-/**
  * Session variety: remember which works have already hung on the wall
  * this visit, and drop them from later rooms. sessionStorage, not
  * localStorage — tomorrow's visit starts clean, which suits a daily
@@ -101,9 +62,6 @@ const withTimeout = async <T,>(
  */
 const SEEN_KEY = 'slowerstranger:seenThisSession';
 const SEEN_CAP = 500;
-
-const signatureOf = (i: PortfolioItem): string =>
-  i.imageUrl || i.url || String(i.id);
 
 const loadSeen = (): Set<string> => {
   try {
@@ -121,30 +79,6 @@ const rememberSeen = (items: PortfolioItem[]) => {
   } catch {
     // Storage unavailable — variety degrades gracefully.
   }
-};
-
-/**
- * At most `max` works by any one maker per room. Archives sometimes
- * return a whole print portfolio in one page (eight plates of the same
- * cycle), which turns a varied wall into one artist's slideshow.
- * Unattributed works are exempt — the cap is about repetition of a
- * hand, not about anonymity.
- */
-const capPerMaker = (items: PortfolioItem[], max = 2): PortfolioItem[] => {
-  const byMaker = new Map<string, number>();
-  const out: PortfolioItem[] = [];
-  for (const item of items) {
-    const maker = extractArtistName(item)?.toLowerCase().trim();
-    if (!maker) {
-      out.push(item);
-      continue;
-    }
-    const n = byMaker.get(maker) ?? 0;
-    if (n >= max) continue;
-    byMaker.set(maker, n + 1);
-    out.push(item);
-  }
-  return out;
 };
 
 function App() {
@@ -197,26 +131,11 @@ function App() {
   // this the user sees the same hero pieces over and over.
   const seenSignaturesRef = useRef<Set<string>>(loadSeen());
 
+  // Stand-ins taken by the current room, for handleImageDead below.
+  const standInsRef = useRef({ count: 0, handled: new Set<string>(), onWall: new Set<string>() });
+
   useEffect(() => {
     let cancelled = false;
-    // Abort in-flight archive fetches when the effect re-runs (rapid
-    // refresh, source switch) or unmounts — StrictMode's dev double-mount
-    // was silently running the whole fetch storm twice.
-    const controller = new AbortController();
-
-    /** Drop items the user has already been served this session, AND
-     *  add the kept items' signatures to the seen-set so a follow-up
-     *  fetch in the same load (the "second pass") won't return them. */
-    const filterAndMarkUnseen = (items: PortfolioItem[]): PortfolioItem[] => {
-      const out: PortfolioItem[] = [];
-      for (const item of items) {
-        const sig = signatureOf(item);
-        if (seenSignaturesRef.current.has(sig)) continue;
-        seenSignaturesRef.current.add(sig);
-        out.push(item);
-      }
-      return out;
-    };
 
     const loadHandful = async () => {
       setItems([]);
@@ -224,125 +143,21 @@ function App() {
       setError(null);
 
       try {
-        let raw: PortfolioItem[];
-        // Everything fetched this load, pre seen-filter. If the session
-        // has already seen every fetchable work, repeats beat an empty
-        // room — this pool is the fallback.
-        let fallbackPool: PortfolioItem[] = [];
-
-        /** Fetch every archive in a lens in parallel and interleave the
-         *  pages so no single archive dominates the room. Each member's
-         *  count scales by its lensWeight, and registry order leads the
-         *  interleave — Cooper Hewitt carries Design. */
-        const fetchLensGroup = async (
-          lens: 'design' | 'art' | 'photo',
-          perMember: number,
-        ): Promise<PortfolioItem[]> => {
-          const members = collections.filter((c) => c.lens === lens);
-          const pages = await Promise.all(
-            members.map((c) =>
-              withTimeout(
-                c.fetchItems(
-                  Math.max(2, Math.round(perMember * (c.lensWeight ?? 1))),
-                  controller.signal,
-                ),
-                SOURCE_TIMEOUT_MS,
-                [] as PortfolioItem[],
-                c.name,
-              ).catch((err) => {
-                if (!isAbortError(err)) console.warn(`${c.name} failed:`, err);
-                return [] as PortfolioItem[];
-              }),
-            ),
-          );
-          return interleave(pages);
-        };
-
-        if (sourceMode === 'mixed') {
-          console.log(`Loading mixed room (${HANDFUL}) from ${collections.length} archives`);
-
-          // Design keeps reserved presence (the thesis: design archives
-          // are central) — drawn from the whole design lens, so Cooper
-          // Hewitt leads and the V&A and Bauhaus threads deepen it.
-          const supportingPromise = Promise.all(
-            collections
-              .filter((c) => c.lens !== 'design')
-              .map(async (c) => {
-                try {
-                  return await c.fetchItems(PER_SUPPORTING_SOURCE, controller.signal);
-                } catch (err) {
-                  if (!isAbortError(err)) console.warn(`${c.name} failed:`, err);
-                  return [] as PortfolioItem[];
-                }
-              }),
-          );
-
-          const [designItems, supportingItems] = await Promise.all([
-            fetchLensGroup('design', DESIGN_RESERVED),
-            supportingPromise,
-          ]);
-
-          const supportingPool = interleave(supportingItems);
-          fallbackPool = interleave([designItems, supportingPool]);
-
-          const freshDesign = capPerMaker(filterAndMarkUnseen(designItems)).slice(0, DESIGN_RESERVED);
-          const freshSupporting = capPerMaker(filterAndMarkUnseen(supportingPool)).slice(
-            0,
-            HANDFUL - freshDesign.length,
-          );
-
-          raw = interleave([freshDesign, freshSupporting]).slice(0, HANDFUL);
-        } else {
-          const members = collections.filter((c) => c.lens === sourceMode);
-          if (members.length === 0) throw new Error(`Unknown lens: ${sourceMode}`);
-          console.log(
-            `Loading ${HANDFUL} from the ${sourceMode} lens (${members.length} ${members.length === 1 ? 'archive' : 'archives'})`,
-          );
-          const perMember = Math.ceil(HANDFUL / members.length) + 4;
-          fallbackPool = await fetchLensGroup(sourceMode, perMember);
-          raw = capPerMaker(filterAndMarkUnseen(fallbackPool)).slice(0, HANDFUL);
-        }
-
-        // If APIs return stale or sparse data, kick a second pass. This
-        // keeps the wall finite while avoiding a half-empty first room.
-        if (!cancelled && raw.length > 0 && raw.length < HANDFUL * 0.7) {
-          console.log(`Only ${raw.length} unseen works; fetching a second pass`);
-          const second = sourceMode === 'mixed'
-            ? interleave(
-                await Promise.all(
-                  collections.map((c) =>
-                    c.fetchItems(PER_SUPPORTING_SOURCE, controller.signal).catch(() => [] as PortfolioItem[]),
-                  ),
-                ),
-              )
-            : await fetchLensGroup(sourceMode, HANDFUL);
-          fallbackPool = [...fallbackPool, ...second];
-          const moreUnseen = capPerMaker(filterAndMarkUnseen(second));
-          raw = [...raw, ...moreUnseen].slice(0, HANDFUL);
-        }
-
-        // Session has seen everything the archives returned: hang
-        // repeats rather than an error. Tomorrow starts clean anyway.
-        if (raw.length === 0 && fallbackPool.length > 0) {
-          console.log('All fetched works already seen this session; hanging repeats');
-          raw = capPerMaker(fallbackPool).slice(0, HANDFUL);
-        }
-
+        const room = await dealRoom(sourceMode, HANDFUL, seenSignaturesRef.current);
         if (cancelled) return;
+        if (room.length === 0) throw new Error('The shelf is empty. Try refreshing.');
 
-        if (raw.length === 0) {
-          throw new Error('No items returned. Try refreshing.');
-        }
+        for (const item of room) seenSignaturesRef.current.add(signatureOf(item));
+        standInsRef.current = { count: 0, handled: new Set(), onWall: new Set(room.map(signatureOf)) };
 
-        const placed = layoutCentered(raw);
+        const placed = layoutCentered(room);
         rememberSeen(placed);
-        console.log(`Loaded ${placed.length} items (${sourceMode}, seen=${seenSignaturesRef.current.size})`);
         setItems(placed);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
         console.error('Failed to load room:', err);
-        setError(err instanceof Error ? err.message : 'Couldn’t load the archives.');
+        setError(err instanceof Error ? err.message : 'Couldn’t open the shelf.');
         setLoading(false);
       }
     };
@@ -353,9 +168,34 @@ function App() {
 
     return () => {
       cancelled = true;
-      controller.abort();
     };
   }, [refreshSeed, activeFilter.mode, sourceMode]);
+
+  // A tile reports that none of its picture addresses loaded: hang a
+  // stand-in from a different archive at the same spot, so the wall
+  // never shows a hole. Looped copies of a tile all report the same
+  // failure, so only the first report for a given work acts. The cap
+  // stops a visitor who is offline from cycling the whole shelf.
+  const MAX_STAND_INS = 40;
+  const handleImageDead = useCallback(async (dead: PortfolioItem) => {
+    const sig = signatureOf(dead);
+    const state = standInsRef.current;
+    if (state.handled.has(sig) || state.count >= MAX_STAND_INS) return;
+    state.handled.add(sig);
+    state.count += 1;
+
+    const standIn = await standInFor(dead, state.onWall, seenSignaturesRef.current).catch(() => null);
+    if (!standIn || standInsRef.current !== state) return;
+
+    seenSignaturesRef.current.add(signatureOf(standIn));
+    setItems((current) => {
+      const index = current.findIndex((i) => signatureOf(i) === sig);
+      if (index === -1) return current;
+      const next = [...current];
+      next[index] = { ...standIn, id: current[index].id, x: current[index].x, y: current[index].y };
+      return next;
+    });
+  }, []);
 
   const handleSourceChange = (mode: SourceMode) => {
     setSourceMode(mode);
@@ -368,18 +208,10 @@ function App() {
     setRefreshSeed((n) => n + 1);
   };
 
-  // Clicking a tag in the detail view ("more by this maker", etc.) searches
-  // across all sources in parallel regardless of current source mode —
-  // a thread is a thread, follow it where it leads.
-  //
-  // The `category` parameter (when present) lets us tighten the results.
-  // For maker tags the museum APIs' broad `q=` search returns anything
-  // containing the words anywhere, so "Trent Bozeman" can match a place
-  // name or unrelated description. We post-filter to items where the
-  // maker is actually credited.
+  // Clicking a tag in the detail view ("more by this maker", etc.)
+  // follows that thread across the whole shelf, whatever lens is open.
+  // A thread is a thread, follow it where it leads.
   const handleTagClick = async (tagLabel: string, category?: string) => {
-    console.log(`Following the thread: ${tagLabel} (category=${category || 'unspecified'})`);
-
     setActiveFilter({
       mode: 'tag-filter',
       tagLabel,
@@ -391,38 +223,9 @@ function App() {
     setLoading(true);
 
     try {
-      // Over-fetch when we're going to post-filter, so we still land
-      // on a reasonable count after weeding out non-matches.
-      const perSourceForSearch = category === 'maker'
-        ? PER_SUPPORTING_SOURCE * 3
-        : PER_SUPPORTING_SOURCE;
-      const results = await Promise.all(
-        collections.map((c) =>
-          c.searchByTag(tagLabel, perSourceForSearch).catch(() => [] as PortfolioItem[]),
-        ),
-      );
-
-      let mixed = interleave(results);
-
-      // Maker-tag filter: keep only items where the maker name we
-      // searched is actually credited (in participants or description).
-      // Substring match, case-insensitive, so "Vincent van Gogh"
-      // matches "Van Gogh, Vincent" and similar variants.
-      if (category === 'maker') {
-        const needle = tagLabel.toLowerCase().trim();
-        mixed = mixed.filter((item) => {
-          const inParticipants = item.participants?.some((p) =>
-            (p.name || '').toLowerCase().includes(needle),
-          );
-          if (inParticipants) return true;
-          const inDescription = (item.description || '').toLowerCase().includes(needle);
-          return inDescription;
-        });
-        console.log(`Maker filter kept ${mixed.length} of the matched items`);
-      }
-
-      mixed = mixed.slice(0, HANDFUL);
-      const placed = layoutCentered(mixed);
+      const found = await followThread(tagLabel, category, HANDFUL);
+      standInsRef.current = { count: 0, handled: new Set(), onWall: new Set(found.map(signatureOf)) };
+      const placed = layoutCentered(found);
 
       setItems(placed);
       setActiveFilter({
@@ -432,9 +235,8 @@ function App() {
         resultCount: placed.length,
         canExpandScope: false,
       });
-      console.log(`Found ${placed.length} items for "${tagLabel}"`);
     } catch (err) {
-      console.error('Tag search failed:', err);
+      console.error('Thread search failed:', err);
       setItems([]);
     }
 
@@ -507,7 +309,7 @@ function App() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
           >
-            <InfiniteCanvas items={items} onTagClick={handleTagClick} />
+            <InfiniteCanvas items={items} onTagClick={handleTagClick} onImageDead={handleImageDead} />
           </motion.div>
         )}
       </AnimatePresence>

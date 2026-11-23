@@ -9,6 +9,8 @@ import { ArtworkDetail } from './ArtworkDetail';
 interface InfiniteCanvasProps {
   items: PortfolioItemType[];
   onTagClick?: (tagLabel: string, category?: string) => void;
+  /** A tile's picture could not be loaded from any of its addresses. */
+  onImageDead?: (item: PortfolioItemType) => void;
 }
 
 /**
@@ -41,7 +43,7 @@ const computeLoopBounds = (items: PortfolioItemType[]): { width: number; height:
   return { width: maxX - minX + stepX, height: maxY - minY + stepY };
 };
 
-export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
+export const InfiniteCanvas = ({ items, onTagClick, onImageDead }: InfiniteCanvasProps) => {
   // Drag offset lives in Framer Motion values, not React state — the
   // transform below updates outside the render cycle entirely.
   const { x, y, handlePointerDown, isClick } = useSmoothDrag();
@@ -181,6 +183,7 @@ export const InfiniteCanvas = ({ items, onTagClick }: InfiniteCanvasProps) => {
             key={item.id}
             item={item}
             onClick={handleItemClick}
+            onImageDead={onImageDead}
           />
         ))}
       </motion.div>

@@ -1,10 +1,10 @@
 /**
  * Enrichment API — fetches deep context about artists and artworks
- * Sources: Wikipedia REST API, Wikidata, museum collection APIs
- * All free, no API keys needed (except museum APIs already configured)
+ * Sources: Wikipedia REST API and Wikidata (free, no keys), plus the
+ * site's own shelf for other works by the same maker.
  */
 
-import { getImageUrl } from './artInstituteApi';
+import { worksByMaker } from '../shelf';
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -481,126 +481,31 @@ export const fetchArtworkContext = async (
 };
 
 /**
- * Fetch related works by the same artist from museum APIs
- * Uses the appropriate API based on the collection source
+ * Other works by the same maker, from the shelf. No museum is asked:
+ * the shelf already holds up to a handful per maker.
  */
 export const fetchRelatedWorks = async (
   artistName: string,
-  collectionSource: string | undefined,
-  currentItemId: string | number
+  _collectionSource: string | undefined,
+  currentItemUrl: string | undefined
 ): Promise<RelatedWork[]> => {
-  const cacheKey = `${artistName}__${collectionSource || 'any'}`.toLowerCase();
-  if (relatedWorksCache.has(cacheKey)) {
-    return relatedWorksCache.get(cacheKey)!.filter(w => !w.url?.includes(String(currentItemId)));
-  }
+  const cacheKey = artistName.toLowerCase();
+  const strip = (works: RelatedWork[]) => works.filter((w) => w.url !== currentItemUrl);
+  if (relatedWorksCache.has(cacheKey)) return strip(relatedWorksCache.get(cacheKey)!);
 
   try {
-    let works: RelatedWork[] = [];
-
-    // Try Art Institute first (no API key needed, most reliable)
-    works = await fetchRelatedFromArtInstitute(artistName);
-
-    // If no results and we have Harvard key, try Harvard
-    if (works.length === 0 && import.meta.env.VITE_HARVARD_KEY) {
-      works = await fetchRelatedFromHarvard(artistName);
-    }
-
+    const found = await worksByMaker(artistName, undefined, 9);
+    const works: RelatedWork[] = found.map((item) => ({
+      title: item.title,
+      artist: item.maker || artistName,
+      imageUrl: item.thumbnailUrl || item.imageUrl || '',
+      date: item.date,
+      url: item.url,
+    }));
     relatedWorksCache.set(cacheKey, works);
-    return works.filter(w => !w.url?.includes(String(currentItemId)));
+    return strip(works);
   } catch {
     relatedWorksCache.set(cacheKey, []);
-    return [];
-  }
-};
-
-/**
- * Cheap fuzzy match — does `haystack` mention this artist? Substring,
- * case-insensitive, and requires ALL meaningful name tokens (>=3 char)
- * to appear so common surnames don't false-match.
- */
-const mentionsArtist = (haystack: string | undefined, artistName: string): boolean => {
-  if (!haystack) return false;
-  const lower = haystack.toLowerCase();
-  const tokens = artistName
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((t) => t.length >= 3);
-  return tokens.length > 0 && tokens.every((t) => lower.includes(t));
-};
-
-/**
- * Search Art Institute for other works by the same artist.
- * The Art Institute's `q=` is full-text — it'll return anything
- * mentioning the artist's name anywhere (titles, descriptions,
- * subjects, themes), so we over-fetch and post-filter to artworks
- * whose own `artist_display` actually credits the artist.
- */
-const fetchRelatedFromArtInstitute = async (artistName: string): Promise<RelatedWork[]> => {
-  try {
-    const response = await fetch(
-      `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(artistName)}&limit=40&fields=id,title,artist_display,date_display,image_id,is_public_domain`,
-      { signal: AbortSignal.timeout(8000) }
-    );
-    if (!response.ok) return [];
-
-    const data = await response.json();
-    const artworks = data.data || [];
-
-    return artworks
-      .filter((a: any) =>
-        a.image_id &&
-        a.is_public_domain &&
-        a.title &&
-        // Only keep works actually credited to this artist.
-        mentionsArtist(a.artist_display, artistName),
-      )
-      .slice(0, 8)
-      .map((a: any) => ({
-        title: a.title,
-        artist: a.artist_display || artistName,
-        imageUrl: getImageUrl(a.image_id, 400),
-        date: a.date_display,
-        url: `https://www.artic.edu/artworks/${a.id}`,
-      }));
-  } catch {
-    return [];
-  }
-};
-
-/**
- * Search Harvard for other works by the same artist. Same broad-search
- * issue — filter to items whose `people` list actually includes them.
- */
-const fetchRelatedFromHarvard = async (artistName: string): Promise<RelatedWork[]> => {
-  const apiKey = import.meta.env.VITE_HARVARD_KEY;
-  if (!apiKey) return [];
-
-  try {
-    const response = await fetch(
-      `https://api.harvardartmuseums.org/object?apikey=${apiKey}&q=${encodeURIComponent(artistName)}&size=40&hasimage=1`,
-      { signal: AbortSignal.timeout(8000) }
-    );
-    if (!response.ok) return [];
-
-    const data = await response.json();
-    const records = data.records || [];
-
-    return records
-      .filter((r: any) => {
-        if (!r.primaryimageurl || !r.title) return false;
-        // Require at least one credited person to actually be the named artist.
-        const people: Array<{ name?: string }> = r.people || [];
-        return people.some((p) => mentionsArtist(p.name, artistName));
-      })
-      .slice(0, 8)
-      .map((r: any) => ({
-        title: r.title,
-        artist: r.people?.[0]?.name || artistName,
-        imageUrl: r.primaryimageurl,
-        date: r.dated,
-        url: r.url,
-      }));
-  } catch {
     return [];
   }
 };

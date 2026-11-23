@@ -107,7 +107,7 @@ export const useEnrichment = (item: PortfolioItem | null) => {
     setState(s => ({ ...s, relatedLoading: true, relatedError: false }));
 
     try {
-      const works = await fetchRelatedWorks(artistName, item.collectionSource, item.id);
+      const works = await fetchRelatedWorks(artistName, item.collectionSource, item.url);
       setState(s => ({
         ...s,
         relatedWorks: works,

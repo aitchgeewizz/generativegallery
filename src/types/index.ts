@@ -11,6 +11,14 @@ export interface ActiveFilter {
 
 export interface PortfolioItem {
   id: number | string;
+  /** Stable id on the shelf, e.g. "vam:O76034". */
+  uid?: string;
+  /** Short archive code the shelf deals by: aic, vam, rijks, wpa, harvard, cma. */
+  src?: string;
+  /** Primary maker, cleaned for display and for the per-room maker cap. */
+  maker?: string;
+  /** Year made, when the record gives one. */
+  year?: number;
   x: number;
   y: number;
   title: string;
@@ -66,6 +74,8 @@ export interface PortfolioItem {
 
   // Copyright / license
   copyrightStatus?: 'public_domain' | 'no_known_copyright' | 'in_copyright' | 'unknown';
+  /** The museum's own rights line, shown in place of the generic status text. */
+  rightsNote?: string;
 }
 
 export interface ViewportBounds {
